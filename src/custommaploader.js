@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "1.1.1",
+	version: "1.1.2",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -363,5 +363,11 @@ exports.patches = [
 			"t.state.store.player.x=161\\*e.cellSize,t.state.store.player.y=616\\*e.cellSize", // Unstuck button
 		replace: `globalThis.CML_playerUnstuck(e)`,
 		expectedMatches: 1,
+	},
+	{
+		type: "replace",
+		from: '"+"".concat(y,", ").concat(v,", ").concat(x)', // Show x, y of invalid colors during world creation
+		to: '"+"".concat(y,", ").concat(v,", ").concat(x) + ` at {x: ${m}, y: ${p}}`',
+		expectedMatches: 2,
 	},
 ];
