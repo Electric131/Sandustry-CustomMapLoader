@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "1.1.2",
+	version: "1.1.3",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -167,13 +167,22 @@ const defaultMeta = {
 exports.api = {
 	map_blueprint_playtest: fileHandler,
 	fog_playtest: fileHandler,
+	map_blueprint_playtest: fileHandler,
+	fog_playtest: fileHandler,
 	"custommaploader/maps": {
 		requiresBaseResponse: false,
 		getFinalResponse: async () => {
 			logDebug(`[custommaploader] Map list requested from '${mapsFolder}'`);
-			const maps = await globalThis.fs.readdirSync(
-				globalThis.resolvePathRelativeToExecutable(mapsFolder)
-			);
+			const maps = (
+				await globalThis.fs.readdirSync(
+					globalThis.resolvePathRelativeToExecutable(mapsFolder),
+					{
+						withFileTypes: true,
+					}
+				)
+			)
+				.filter((dirent) => dirent.isDirectory())
+				.map((dirent) => dirent.name);
 			maps.unshift("default");
 			logDebug(`[custommaploader] Map list: '${maps.join(", ")}'`);
 			const body = Buffer.from(JSON.stringify(maps)).toString("base64");
@@ -240,7 +249,7 @@ exports.onMenuLoaded = async function () {
 	selector.innerHTML = `
 <form class="max-w-sm mx-auto">
 	<label for="mapSelector" class="block mb-2 text-base font-medium text-gray-900 dark:text-white">Select Map</label>
-	<select id="mapSelector" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+	<select id="mapSelector" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" style="max-width: 7rem; width: 7rem">
 	${options}
 	</select>
 </form>`;
