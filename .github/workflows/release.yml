@@ -15,7 +15,7 @@ jobs:
       - name: Zip maps
         run: |
           mkdir -p ./dist
-          zip ./dist/flat.zip ./maps/flat && zip ./dist/template.zip ./maps/template
+          zip -rj ./dist/examplemap.zip ./maps/examplemap/* && zip -rj ./dist/template.zip ./maps/template/*
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -43,8 +43,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/flat.zip
-          asset_name: flat.zip
+          asset_path: ./dist/examplemap.zip
+          asset_name: examplemap.zip
           asset_content_type: application/zip
       - name: Upload Map Template
         id: upload-map-template

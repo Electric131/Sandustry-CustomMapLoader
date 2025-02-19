@@ -10,7 +10,7 @@ To install the custom map loader, locate the `mods` folder created by the Sandus
 
 After running the game with the mod for the first time, you should see a dropdown in the main menu as well as a `maps` folder located inside the `mods` folder.
 
-Now you'll want to find a zipped map file (or try [this example map](https://github.com/Electric131/Sandustry-CustomMapLoader/releases/latest/download/flat.zip)) and unzip/extract the contents into their own folder.
+Now you'll want to find a zipped map file (or try [this example map](https://github.com/Electric131/Sandustry-CustomMapLoader/releases/latest/download/examplemap.zip)) and unzip/extract the contents into their own folder.
 
 Place the unzipped/extracted folder into the `maps` folder from earlier (Do not place the _contents_ of the folder into the maps folder). _Note: The name of this folder will be the name of the map as seen in game_
 
