@@ -4,6 +4,8 @@ on:
       - "v*" # Push version tags
 
 name: Upload Release
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -43,7 +45,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/maps/flat.zip
+          asset_path: ./dist/flat.zip
           asset_name: flat.zip
           asset_content_type: application/zip
       - name: Upload Map Template
@@ -53,6 +55,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/maps/template.zip
+          asset_path: ./dist/template.zip
           asset_name: template.zip
           asset_content_type: application/zip
