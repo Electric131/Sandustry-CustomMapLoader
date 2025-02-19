@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "1.1.3",
+	version: "1.1.4",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -138,7 +138,7 @@ async function catchFile({ request, baseResponse }) {
 		);
 		logDebug(`[custommaploader] Path resolved to '${newPath}'`);
 		return {
-			body: globalThis.fs.readFileSync(newPath).toString("base64"),
+			body: data.toString("base64"),
 			contentType: "image/png",
 		};
 	}
@@ -221,7 +221,6 @@ exports.api = {
 			logDebug(
 				`[custommaploader] Current map requested; responding: '${data}'`
 			);
-			log("uhh map requested");
 			const body = Buffer.from(data).toString("base64");
 			return { body, contentType: "application/text" };
 		},
