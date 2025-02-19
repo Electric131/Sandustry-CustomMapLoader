@@ -1,0 +1,15 @@
+{
+	"spawn": {
+		"x": 363,
+		"y": 200
+	},
+	"unstuck": {
+		"x": 161,
+		"y": 616
+	},
+	"introSequence": {
+		"1726": "boostup",
+		"5000": "endboost",
+		"5146": "end"
+	}
+}
