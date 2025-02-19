@@ -28,7 +28,7 @@ To learn more about making a map as well as what each file in a map does, check 
 
 ## FAQ (Installing Maps)
 
-If you have any issues installing a map, you can check the FAQ in [the wiki](https://github.com/Electric131/Sandustry-CustomMapLoader/wiki/Installing-FAQ).
+If you have any issues installing a map, you can check the FAQ in [the wiki](https://github.com/Electric131/Sandustry-CustomMapLoader/wiki/FAQ-(Installing-Maps)).
 
 ## Contact
 
