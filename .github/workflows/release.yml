@@ -4,8 +4,6 @@ on:
       - "v*" # Push version tags
 
 name: Upload Release
-permissions:
-  contents: write
 
 jobs:
   build:
