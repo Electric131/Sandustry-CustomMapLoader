@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "1.1.4",
+	version: "1.2.1",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -8,10 +8,7 @@ exports.modinfo = {
 exports.patches = [];
 
 const assert = (_) => {
-	if (!_)
-		throw new Error(
-			`[custommaploader] Value was expected to be truthy but failed`
-		);
+	if (!_) throw new Error(`[custommaploader] Value was expected to be truthy but failed`);
 };
 
 var defaultConfig = {
@@ -31,9 +28,7 @@ async function load(ignoreFirstLoad) {
 		const diff = performance.now() - lastRequest;
 		// Resets image loading if the delay since the last request is high enough
 		if (diff > 1000) {
-			logDebug(
-				"[custommaploader] Resetting load data to prep for next request"
-			);
+			logDebug("[custommaploader] Resetting load data to prep for next request");
 			lastRequest = performance.now();
 			firstLoad = true;
 			loadReady = false;
@@ -50,9 +45,7 @@ async function load(ignoreFirstLoad) {
 				modConfig.set("custommaploader", config);
 			}
 			if (!config.map) {
-				throw new Error(
-					`[custommaploader] Config key missing, try resetting your config file`
-				);
+				throw new Error(`[custommaploader] Config key missing, try resetting your config file`);
 			}
 			if (!fs.existsSync(mapsFolder)) {
 				log(`[custommaploader] Creating directory: ${mapsFolder}`);
@@ -85,12 +78,8 @@ async function load(ignoreFirstLoad) {
 
 function mapFileExists(name) {
 	if (!mapFolder) return false;
-	logDebug(
-		`[custommaploader] Checking if file '${mapFolder}/${name}' exists..`
-	);
-	return globalThis.fs.existsSync(
-		globalThis.resolvePathRelativeToExecutable(`${mapFolder}/${name}`)
-	);
+	logDebug(`[custommaploader] Checking if file '${mapFolder}/${name}' exists..`);
+	return globalThis.fs.existsSync(globalThis.resolvePathRelativeToExecutable(`${mapFolder}/${name}`));
 }
 
 function checkMapsValid() {
@@ -103,10 +92,7 @@ function checkMapsValid() {
 		valid &= mapFileExists("map_blueprint_playtest_lights.png");
 		valid &= mapFileExists("map_blueprint_playtest_sensors.png");
 		valid &= mapFileExists("fog_playtest.png");
-		if (!valid)
-			throw new Error(
-				`[custommaploader] Custom map files are missing from ${mapFolder}. Please make sure to place the custom map files in the correct location.`
-			);
+		if (!valid) throw new Error(`[custommaploader] Custom map files are missing from ${mapFolder}. Please make sure to place the custom map files in the correct location.`);
 	}
 	globalThis.customMapsValid = valid;
 }
@@ -116,9 +102,7 @@ async function catchFile({ request, baseResponse }) {
 	try {
 		file = request.url.match("/([^/]+).png$")[1]; // Finds only the file name at the end
 	} catch {
-		throw new Error(
-			`[custommaploader] Error when parsing file name from ${request.url}`
-		);
+		throw new Error(`[custommaploader] Error when parsing file name from ${request.url}`);
 	}
 	reloadConfig = true;
 	await load();
@@ -130,15 +114,11 @@ async function catchFile({ request, baseResponse }) {
 		};
 	} else {
 		assert(mapFolder);
-		logDebug(
-			`[custommaploader] Resolving path for '${mapFolder}/${file}.png'..`
-		);
-		const newPath = globalThis.resolvePathRelativeToExecutable(
-			`${mapFolder}/${file}.png`
-		);
+		logDebug(`[custommaploader] Resolving path for '${mapFolder}/${file}.png'..`);
+		const newPath = globalThis.resolvePathRelativeToExecutable(`${mapFolder}/${file}.png`);
 		logDebug(`[custommaploader] Path resolved to '${newPath}'`);
 		return {
-			body: data.toString("base64"),
+			body: globalThis.fs.readFileSync(newPath).toString("base64"),
 			contentType: "image/png",
 		};
 	}
@@ -174,12 +154,9 @@ exports.api = {
 		getFinalResponse: async () => {
 			logDebug(`[custommaploader] Map list requested from '${mapsFolder}'`);
 			const maps = (
-				await globalThis.fs.readdirSync(
-					globalThis.resolvePathRelativeToExecutable(mapsFolder),
-					{
-						withFileTypes: true,
-					}
-				)
+				await globalThis.fs.readdirSync(globalThis.resolvePathRelativeToExecutable(mapsFolder), {
+					withFileTypes: true,
+				})
 			)
 				.filter((dirent) => dirent.isDirectory())
 				.map((dirent) => dirent.name);
@@ -199,12 +176,8 @@ exports.api = {
 			if (config.map != "default") {
 				logDebug(`[custommaploader] Map data requested for '${mapFolder}'`);
 				if (config.map && mapFolder && mapFileExists("meta.json")) {
-					const path = globalThis.resolvePathRelativeToExecutable(
-						`${mapFolder}/meta.json`
-					);
-					data = JSON.parse(
-						(await globalThis.fs.promises.readFile(path)).toString()
-					);
+					const path = globalThis.resolvePathRelativeToExecutable(`${mapFolder}/meta.json`);
+					data = JSON.parse((await globalThis.fs.promises.readFile(path)).toString());
 					data = Object.assign(tempDefaults, data);
 				}
 			}
@@ -215,12 +188,9 @@ exports.api = {
 	"custommaploader/map": {
 		requiresBaseResponse: false,
 		getFinalResponse: async () => {
-			if (!(config && config.map))
-				throw new Error("Config or map was undefined!");
+			if (!(config && config.map)) throw new Error("Config or map was undefined!");
 			let data = config.map || "null";
-			logDebug(
-				`[custommaploader] Current map requested; responding: '${data}'`
-			);
+			logDebug(`[custommaploader] Current map requested; responding: '${data}'`);
 			const body = Buffer.from(data).toString("base64");
 			return { body, contentType: "application/text" };
 		},
@@ -235,8 +205,7 @@ exports.onMenuLoaded = async function () {
 		selected = "default";
 	}
 	const options = maps.map((name) => {
-		if (name == selected)
-			return `<option value="${name}" selected>${name}</option>`;
+		if (name == selected) return `<option value="${name}" selected>${name}</option>`;
 		return `<option value="${name}">${name}</option>`;
 	});
 
@@ -257,11 +226,9 @@ exports.onMenuLoaded = async function () {
 			"#ui > div.fixed.inset-0.flex.items-center.justify-center.pointer-events-none.mt-40 > div > div.bg-opacity-25.text-white.flex.flex-col.items-center.justify-center.relative"
 		);
 		ui.appendChild(selector);
-		document
-			.getElementById("mapSelector")
-			.addEventListener("change", function () {
-				modConfig.set("custommaploader", { map: this.value });
-			});
+		document.getElementById("mapSelector").addEventListener("change", function () {
+			modConfig.set("custommaploader", { map: this.value });
+		});
 	}, 1000);
 };
 
@@ -270,11 +237,7 @@ exports.onGameLoaded = async function () {
 };
 
 globalThis.CML_playerSpawnPos = function (constants) {
-	console.log(
-		`[custommaploader] Player spawn requested at ${performance.now()}! Is map data ready? ${
-			globalThis.CML_mapData != undefined
-		}`
-	);
+	console.log(`[custommaploader] Player spawn requested at ${performance.now()}! Is map data ready? ${globalThis.CML_mapData != undefined}`);
 	pos = globalThis.CML_mapData.spawn;
 	return {
 		x: pos.x * constants.cellSize,
@@ -283,10 +246,8 @@ globalThis.CML_playerSpawnPos = function (constants) {
 };
 
 globalThis.CML_playerUnstuck = function (constants) {
-	gameInstance.state.store.player.x =
-		globalThis.CML_mapData.unstuck.x * constants.cellSize;
-	gameInstance.state.store.player.y =
-		globalThis.CML_mapData.unstuck.y * constants.cellSize;
+	gameInstance.state.store.player.x = globalThis.CML_mapData.unstuck.x * constants.cellSize;
+	gameInstance.state.store.player.y = globalThis.CML_mapData.unstuck.y * constants.cellSize;
 };
 
 globalThis.CML_landingHelper = function (_) {
@@ -319,19 +280,14 @@ globalThis.CML_landingHelper = function (_) {
 };
 
 globalThis.CML_playerLanding = function (playSound, stopSound, endCallback) {
-	const elapsedTime =
-		gameInstance.state.store.scene.start + gameInstance.state.store.meta.time;
+	const elapsedTime = gameInstance.state.store.scene.start + gameInstance.state.store.meta.time;
 	if (elapsedTime >= 8000) return endCallback(); // Cut off sequence at 8 seconds as a fallback
 	if (!globalThis.CML_mapData) return; // Wait for data to load (hopefully it does..)
 	if (!globalThis.CML_landingIndex) globalThis.CML_landingIndex = 0;
-	const sequenceLength = Object.keys(
-		globalThis.CML_mapData.introSequence
-	).length;
+	const sequenceLength = Object.keys(globalThis.CML_mapData.introSequence).length;
 	if (globalThis.CML_mapData.introSequence && sequenceLength > 0) {
 		if (globalThis.CML_landingIndex >= sequenceLength) return endCallback();
-		let entry = Object.entries(globalThis.CML_mapData.introSequence)[
-			globalThis.CML_landingIndex
-		];
+		let entry = Object.entries(globalThis.CML_mapData.introSequence)[globalThis.CML_landingIndex];
 		if (elapsedTime >= entry[0]) {
 			globalThis.CML_landingHelper({
 				instruction: entry[1],
@@ -349,8 +305,7 @@ exports.patches = [
 		type: "regex",
 		pattern:
 			'case x\\.Intro:.*?if\\((.+?),!e\\.store\\.scene\\.triggers\\[0\\].+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+(e\\.store\\.scene\\.active=x\\.Game.+?)}break;case', // Intro timing sequence
-		replace:
-			"case x.Intro:$1;globalThis.CML_playerLanding($2, $3, function(){$4});break;case",
+		replace: "case x.Intro:$1;globalThis.CML_playerLanding($2, $3, function(){$4});break;case",
 		expectedMatches: 1,
 	},
 	{
@@ -367,8 +322,7 @@ exports.patches = [
 	},
 	{
 		type: "regex",
-		pattern:
-			"t.state.store.player.x=161\\*e.cellSize,t.state.store.player.y=616\\*e.cellSize", // Unstuck button
+		pattern: "t.state.store.player.x=161\\*e.cellSize,t.state.store.player.y=616\\*e.cellSize", // Unstuck button
 		replace: `globalThis.CML_playerUnstuck(e)`,
 		expectedMatches: 1,
 	},
