@@ -256,11 +256,7 @@ exports.api = {
 	"custommaploader/mapdata": {
 		requiresBaseResponse: false,
 		getFinalResponse: async () => {
-			const result = await loadMap();
-			console.log(result);
-			if (!result) {
-				console.log(mapData);
-			}
+			await loadMap();
 			if (!mapData) throw new Error("[custommaploader] FATAL: Map data was not ready after loading.");
 			const body = Buffer.from(JSON.stringify(mapData)).toString("base64");
 			return { body, contentType: "application/json" };
@@ -477,8 +473,8 @@ exports.patches = [
 	{
 		// Parallax vertical adjustment
 		type: "replace",
-		from: "+Math.round(n.session.resolution.height",
-		to: `+globalThis.CML_tryGetData().meta.parallaxOffset+Math.round(n.session.resolution.height`,
+		from: "Math.round(-n.session.camera.y",
+		to: `Math.round(-(n.session.camera.y+globalThis.CML_tryGetData().meta.parallaxOffset)`,
 		expectedMatches: 2,
 	},
 	{
