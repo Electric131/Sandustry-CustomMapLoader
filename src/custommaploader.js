@@ -500,7 +500,7 @@ exports.patches = [
 exports.onMenuLoaded = async function () {
 	// Exposes maps in case other mods want to use them without refetching
 	globalThis.CML_maps = await (await fetch("custommaploader/maps")).json();
-	const selected = (await modConfig.get("custommaploader")).map;
+	const selected = (await modConfig.get("custommaploader")).map || "default";
 	const options = Object.keys(globalThis.CML_maps).map((name) => {
 		if (name == selected) return `<option value="${name}" selected>${name}</option>`;
 		return `<option value="${name}">${name}</option>`;
@@ -527,11 +527,12 @@ exports.onMenuLoaded = async function () {
 		globalThis.CML_mapWarn = undefined;
 		const map = globalThis.CML_maps[newSelection];
 		// Warnings are not for errors, those can be handled after.
-		if (map.valid) {
+		if (map && map.valid) {
 			if (map.scale > 3) {
 				return (globalThis.CML_mapWarn = `This map is ${map.scale}x scale (${map.width}x${map.width}). This map may not load on your machine or may cause other unexpected issues since it is bigger than 3x.`);
 			}
 		}
+		modConfig.set("custommaploader", { map: newSelection });
 	}
 
 	const selector = document.createElement("div");
@@ -555,7 +556,6 @@ exports.onMenuLoaded = async function () {
 		ui.appendChild(selector);
 		selectionChanged(selected);
 		document.getElementById("CML_mapSelector").addEventListener("change", function () {
-			modConfig.set("custommaploader", { map: this.value });
 			selectionChanged(this.value);
 		});
 	}, 100);
