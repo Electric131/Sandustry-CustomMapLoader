@@ -74,11 +74,11 @@ async function loadMap(mapName) {
 			log(`[custommaploader] Config map missing, default config loaded`);
 			modConfig.set("custommaploader", config);
 		}
-		if (!fs.existsSync(mapsFolder)) {
-			log(`[custommaploader] Creating directory: ${mapsFolder}`);
-			fs.mkdirSync(mapsFolder, { recursive: true });
-		}
 		mapName = config.map;
+	}
+	if (!fs.existsSync(mapsFolder)) {
+		log(`[custommaploader] Creating directory: ${mapsFolder}`);
+		fs.mkdirSync(mapsFolder, { recursive: true });
 	}
 	log(`[custommaploader] Loading map '${mapName}'`);
 	let mapFolder = `${mapsFolder}/${mapName}`;
