@@ -233,6 +233,10 @@ exports.api = {
 		requiresBaseResponse: false,
 		getFinalResponse: async () => {
 			logDebug(`[custommaploader] Map list requested from '${mapsFolder}'`);
+			if (!fs.existsSync(mapsFolder)) {
+				log(`[custommaploader] Creating directory: ${mapsFolder}`);
+				fs.mkdirSync(mapsFolder, { recursive: true });
+			}
 			const maps = (
 				await globalThis.fs.readdirSync(globalThis.resolvePathRelativeToExecutable(mapsFolder), {
 					withFileTypes: true,
