@@ -7,6 +7,34 @@ exports.modinfo = {
 
 const mapsFolder = "./mods/maps";
 
+const templateColors = {
+	Empty: "255, 255, 255",
+	Bedrock: "170, 170, 170",
+	SurfaceWater: "102, 0, 255",
+	Ice: "102, 204, 255",
+	RevealedFog: "153, 0, 0",
+	CaveSandSoil: "0, 0, 0",
+	Grass: "0, 255, 0",
+	Moss: "0, 224, 0",
+	Divider: "0, 102, 0",
+	SporeSoil: "255, 255, 0",
+	FreezingIce: "204, 255, 255",
+	CaveFreezingIce: "153, 255, 255",
+	Fog: "153, 51, 0",
+	JetpackFog: "255, 0, 153",
+	JetpackFogWater: "102, 102, 255",
+	BedrockFog: "102, 102, 102",
+	FogWater: "153, 102, 255",
+	FogLava: "255, 102, 0",
+	Fluxite: "175, 0, 224",
+	RedsandSoil: "255, 85, 0",
+	Crackstone: "205, 139, 139",
+	DarkFog: "51, 51, 51",
+	SandSoil: "0, 0, 255",
+	Scoria: "38, 0, 0",
+	GoldSoil: "127, 127, 0",
+};
+
 // The base map data for every map
 const mapDataTemplate = {
 	valid: true,
@@ -42,6 +70,7 @@ const mapDataTemplate = {
 			max: 1200,
 			min: 200,
 		},
+		colors: templateColors,
 	},
 };
 
@@ -335,6 +364,92 @@ globalThis.CML_newGame = function (originalFunction) {
 	}
 };
 
+globalThis.CML_initColors = function () {
+	let data = globalThis.CML_mapData;
+	if (window.location.href.endsWith("index.html")) {
+		data = CML_tryGetData(); // Grab defaults if in menu
+	}
+	if (!data) throw new Error("[custommaploader] Map data was not ready during color init");
+	globalThis.CML_loadedColors = {};
+	const colors = data.meta.colors;
+	// Swap keys and values of colors
+	for (const tile of Object.keys(colors)) {
+		if (Object.keys(globalThis.CML_loadedColors).includes(colors[tile])) {
+			throw new Error(`[custommaploader] Duplicate color found during world creation: ${colors[tile]}`);
+		}
+		globalThis.CML_loadedColors[colors[tile]] = tile;
+	}
+};
+
+const basicColorMap = {
+	Empty: "255, 255, 255",
+	Bedrock: "170, 170, 170",
+	SurfaceWater: "102, 0, 255",
+	Ice: "102, 204, 255",
+	RevealedFog: "153, 0, 0", // Not actually Fog, it's just Empty with a dirt background..?
+};
+
+// Converts basicColorMap - which is only basic colors in the switch statement
+globalThis.CML_convertColor = function (color) {
+	if (!globalThis.CML_loadedColors) globalThis.CML_initColors();
+	if (!Object.keys(globalThis.CML_loadedColors).includes(color)) return color;
+	if (!Object.keys(basicColorMap).includes(globalThis.CML_loadedColors[color])) return color;
+	return basicColorMap[globalThis.CML_loadedColors[color]];
+};
+
+const advancedColorMap = {
+	CaveSandSoil: "0, 0, 0",
+	Grass: "0, 255, 0",
+	Moss: "0, 224, 0",
+	Divider: "0, 102, 0",
+	SporeSoil: "255, 255, 0",
+	FreezingIce: "204, 255, 255",
+	CaveFreezingIce: "153, 255, 255",
+	Fog: "153, 51, 0",
+	JetpackFog: "255, 0, 153",
+	JetpackFogWater: "102, 102, 255",
+	BedrockFog: "102, 102, 102",
+	FogWater: "153, 102, 255",
+	FogLava: "255, 102, 0",
+	Fluxite: "175, 0, 224",
+	RedsandSoil: "255, 85, 0",
+	Crackstone: "205, 139, 139",
+	DarkFog: "51, 51, 51", // Only used in the artifact rooms from what I can tell, is just a darker version of BedrockFog
+	SandSoil: "0, 0, 255", // Blame Lantto... apparently this is just SandSoil without dirt background
+};
+
+const extraColorMap = {
+	Scoria: "38, 0, 0",
+	GoldSoil: "127, 127, 0",
+};
+
+// Converts advancedColorMap - which is the extra list of colors stored as `Fd` currently
+// Then also adds any custom colors defined
+globalThis.CML_addExtraColors = function (solids) {
+	if (!globalThis.CML_colorTable) throw new Error("[custommodloader] Color table was not ready at world creation");
+	const original = JSON.parse(JSON.stringify(globalThis.CML_colorTable));
+	let data = CML_tryGetData();
+	if (!globalThis.CML_loadedColors) globalThis.CML_initColors();
+	for (const tile of Object.values(globalThis.CML_loadedColors)) {
+		if (!advancedColorMap[tile]) continue;
+		globalThis.CML_colorTable[data.meta.colors[tile]] = original[advancedColorMap[tile]];
+	}
+	const extraColorLookup = {
+		Scoria: {
+			bg: solids.SandSoil,
+			fg: solids.Obsidian,
+		},
+		GoldSoil: {
+			bg: solids.SandSoil,
+			fg: solids.GoldSoil,
+		},
+	};
+
+	for (const tile of Object.keys(extraColorMap)) {
+		globalThis.CML_colorTable[extraColorMap[tile]] = extraColorLookup[tile];
+	}
+};
+
 globalThis.CML_playerSpawnPos = function (constants) {
 	if (!globalThis.CML_mapData) throw new Error("[custommaploader] Map data was not ready when player spawn was requested.");
 	return {
@@ -437,6 +552,27 @@ exports.patches = [
 		pattern: 'text:"(Continue|New|Load)",hint:"([^"]*?)",onClick:function\\(\\){(.+?)}',
 		replace: 'text:"$1",hint:"$2",onClick:function(){globalThis.CML_newGame(()=>{$3})}',
 		expectedMatches: 3,
+	},
+	{
+		// World creation - color conversion
+		type: "regex",
+		pattern: "switch\\(b\\)",
+		replace: `b=globalThis.CML_convertColor(b);switch(b)`,
+		expectedMatches: 1,
+	},
+	{
+		// World creation - pixel loop starting
+		type: "replace",
+		from: "for(var i=performance.now()",
+		to: `globalThis.CML_addExtraColors(t);for(var i=performance.now()`,
+		expectedMatches: 1,
+	},
+	{
+		// Color table creation (too early for mapData to be loaded)
+		type: "replace",
+		from: "};l.Demolisher,",
+		to: `};globalThis.CML_colorTable=Fd;`,
+		expectedMatches: 1,
 	},
 	{
 		// World creation - player spawn
