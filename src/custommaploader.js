@@ -421,7 +421,6 @@ async function loadMap(mapName) {
 		}
 		if (fileError != undefined) return fileError;
 		tempData.hash = MD5(mainBuffer.toString("base64"));
-		console.log(tempData.hash);
 	} else {
 		log("[custommaploader] Using default map data..");
 		// Yes, I'm forcing meta settings for specifically the default map.. I'm bad :(
