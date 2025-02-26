@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "2.1.0",
+	version: "2.2.0",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -45,6 +45,7 @@ const mapDataTemplate = {
 	rawScale: 1,
 	width: 1280,
 	images: {},
+	hash: null,
 	meta: {
 		spawn: {
 			x: 363,
@@ -73,6 +74,25 @@ const mapDataTemplate = {
 		colors: templateColors,
 	},
 };
+
+// Thank you ChatGPT for a purejs hashing function :)
+function fnv1aHash(buffer) {
+	let hash = 0x811c9dc5; // FNV offset basis
+	for (let i = 0; i < buffer.length; i++) {
+		hash ^= buffer[i];
+		hash = Math.imul(hash, 0x01000193); // FNV prime
+	}
+	return hash.toString(16).padStart(8, "0");
+}
+
+function hashBuffer(buffer) {
+	let bytes = new Uint8Array(buffer);
+	let hash = "";
+	for (let i = 0; i < bytes.length; i += 8) {
+		hash += fnv1aHash(bytes.slice(i, i + 8));
+	}
+	return btoa(hash.slice(16, 32));
+}
 
 let mapData;
 let inMenu = true;
@@ -133,14 +153,16 @@ async function loadMap(mapName) {
 			"fog_playtest.png",
 			"meta.json",
 		];
+		let mainBuffer = Buffer.from("");
 		for (const file of mapFiles) {
 			logDebug(`[custommaploader] Checking if file '${tempData.folderRelative}/${file}' exists..`);
-			const exists = globalThis.fs.existsSync(`${tempData.folder}/${file}`);
+			const exists = fs.existsSync(`${tempData.folder}/${file}`);
 			if (!exists) {
 				if (file == "meta.json") continue;
 				return loadingError(`Custom map files are missing from ${mapFolder}. Please make sure to place the custom map files in the correct location.`);
 			}
-			let data = globalThis.fs.readFileSync(`${tempData.folderRelative}/${file}`);
+			let data = fs.readFileSync(`${tempData.folderRelative}/${file}`);
+			mainBuffer = Buffer.concat([mainBuffer, data]);
 			switch (file) {
 				case "meta.json":
 					data = JSON.parse(data.toString());
@@ -191,6 +213,7 @@ async function loadMap(mapName) {
 			if (fileError != undefined) return fileError;
 		}
 		if (fileError != undefined) return fileError;
+		tempData.hash = hashBuffer(mainBuffer);
 	} else {
 		log("[custommaploader] Using default map data..");
 		// Yes, I'm forcing meta settings for specifically the default map.. I'm bad :(
@@ -206,6 +229,7 @@ async function loadMap(mapName) {
 		});
 		tempData.folder = null;
 		tempData.folderRelative = null;
+		tempData.hash = "default";
 	}
 	if (tempData.images["map_blueprint_playtest.png"]) {
 		tempData.width = tempData.images["map_blueprint_playtest.png"].width;
@@ -242,7 +266,7 @@ function catchFile({ request }) {
 		logDebug(`[custommaploader] Resolving path for '${mapData.folderRelative}/${file}.png'..`);
 		const newPath = `${mapData.folder}/${file}.png`;
 		logDebug(`[custommaploader] Path resolved to '${newPath}'`);
-		const data = globalThis.fs.readFileSync(newPath);
+		const data = fs.readFileSync(newPath);
 		return {
 			body: data.toString("base64"),
 			contentType: "image/png",
@@ -267,7 +291,7 @@ exports.api = {
 				fs.mkdirSync(mapsFolder, { recursive: true });
 			}
 			const maps = (
-				await globalThis.fs.readdirSync(globalThis.resolvePathRelativeToExecutable(mapsFolder), {
+				await fs.readdirSync(globalThis.resolvePathRelativeToExecutable(mapsFolder), {
 					withFileTypes: true,
 				})
 			)
@@ -314,6 +338,35 @@ exports.api = {
 			return { body, contentType: "application/text" };
 		},
 	},
+	"custommaploader/loadsave": {
+		requiresBaseResponse: false,
+		getFinalResponse: async ({ request }) => {
+			try {
+				file = request.url.match(/\/([^\s/]+)$/)[1]; // Finds only the save name at the end
+			} catch {
+				throw new Error(`[custommaploader] Error when parsing file name from ${request.url}`);
+			}
+			logDebug(`[custommaploader] Attempting to load save '${file}'`);
+			let appDataPath;
+			if (process.platform === "win32") {
+				appDataPath = process.env.APPDATA;
+			} else if (process.platform === "darwin") {
+				appDataPath = path.join(process.env.HOME, "Library", "Application Support");
+			} else {
+				appDataPath = process.env.XDG_CONFIG_HOME || path.join(process.env.HOME, ".config");
+			}
+			if (!appDataPath) throw new Error(`[custommaploader] Could not find appData path`);
+			try {
+				let savePath = path.join(appDataPath, "sandustrydemo", "saves", file + ".save");
+				logDebug(`[custommaploader] Located save file at '${savePath}'`);
+				const body = fs.readFileSync(savePath).toString("base64");
+				return { body, contentType: "application/json" };
+			} catch {
+				logError(`[custommaploader] Loading save '${file}' failed!`);
+				return { body: "", contentType: "application/json" };
+			}
+		},
+	},
 	"/bundle.js": {
 		requiresBaseResponse: true,
 		getFinalResponse: async () => {
@@ -323,7 +376,7 @@ exports.api = {
 	},
 };
 
-globalThis.CML_newGame = function (originalFunction) {
+globalThis.CML_menuWarn = function (originalFunction) {
 	if (globalThis.CML_mapWarn) {
 		const popup = document.createElement("div");
 		popup.innerHTML = `
@@ -361,6 +414,28 @@ globalThis.CML_newGame = function (originalFunction) {
 		});
 	} else {
 		originalFunction();
+	}
+};
+
+globalThis.CML_newGame = function (originalFunction, saveId) {
+	// If a save is given check the map hash
+	if (saveId && globalThis.CML_maps) {
+		return new Promise(async (res, rej) => {
+			try {
+				const worldHash = JSON.parse((await (await fetch("custommaploader/loadsave/" + saveId)).text()).split("\n")[1]).world.mapHash;
+				const selected = globalThis.CML_maps[globalThis.CML_selectedMap];
+				if (worldHash && selected && selected.hash != worldHash) {
+					globalThis.CML_mapWarn = "The save you are loading was created with a different map than the one that is currently active! This could cause potential errors!";
+				}
+				globalThis.CML_menuWarn(originalFunction);
+				res();
+			} catch {
+				logError(`[custommaploader] Error when parsing info for save '${saveId}'`);
+				rej();
+			}
+		});
+	} else {
+		globalThis.CML_menuWarn(originalFunction);
 	}
 };
 
@@ -547,11 +622,25 @@ exports.patches = [
 		expectedMatches: 2,
 	},
 	{
-		// Main menu 'Continue', 'New', and 'Load' button intercept
-		type: "regex",
-		pattern: 'text:"(Continue|New|Load)",hint:"([^"]*?)",onClick:function\\(\\){(.+?)}',
-		replace: 'text:"$1",hint:"$2",onClick:function(){globalThis.CML_newGame(()=>{$3})}',
-		expectedMatches: 3,
+		// Main menu 'Continue' button intercept
+		type: "replace",
+		from: 'b_("db_load=".concat(r))',
+		to: 'globalThis.CML_newGame(()=>{b_("db_load=".concat(r))}, r)',
+		expectedMatches: 1,
+	},
+	{
+		// Main menu 'New' button intercept
+		type: "replace",
+		from: 'b_("new_game=true")',
+		to: 'globalThis.CML_newGame(()=>{b_("new_game=true")})',
+		expectedMatches: 1,
+	},
+	{
+		// Main menu 'Load' button intercept
+		type: "replace",
+		from: 'e&&b_("db_load="+e.id)',
+		to: 'globalThis.CML_newGame(() => {e&&b_("db_load="+e.id)}, e.id)',
+		expectedMatches: 1,
 	},
 	{
 		// World creation - color conversion
@@ -633,12 +722,16 @@ exports.patches = [
 	},
 ];
 
+exports.onGameLoaded = async function () {
+	if (!gameInstance.state.store.world.mapHash) gameInstance.state.store.world.mapHash = globalThis.CML_mapData.hash;
+};
+
 exports.onMenuLoaded = async function () {
 	// Exposes maps in case other mods want to use them without refetching
 	globalThis.CML_maps = await (await fetch("custommaploader/maps")).json();
-	const selected = (await modConfig.get("custommaploader")).map || "default";
+	globalThis.CML_selectedMap = (await modConfig.get("custommaploader")).map || "default";
 	const options = Object.keys(globalThis.CML_maps).map((name) => {
-		if (name == selected) return `<option value="${name}" selected>${name}</option>`;
+		if (name == globalThis.CML_selectedMap) return `<option value="${name}" selected>${name}</option>`;
 		return `<option value="${name}">${name}</option>`;
 	});
 
@@ -661,6 +754,7 @@ exports.onMenuLoaded = async function () {
 
 	function selectionChanged(newSelection) {
 		globalThis.CML_mapWarn = undefined;
+		globalThis.CML_selectedMap = newSelection;
 		const map = globalThis.CML_maps[newSelection];
 		// Warnings are not for errors, those can be handled after.
 		if (map && map.valid) {
@@ -690,7 +784,7 @@ exports.onMenuLoaded = async function () {
 		if (!ui) return;
 		clearInterval(interval);
 		ui.appendChild(selector);
-		selectionChanged(selected);
+		selectionChanged(globalThis.CML_selectedMap);
 		document.getElementById("CML_mapSelector").addEventListener("change", function () {
 			selectionChanged(this.value);
 		});
