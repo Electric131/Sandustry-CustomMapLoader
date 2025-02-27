@@ -365,7 +365,10 @@ async function loadMap(mapName) {
 			logDebug(`[custommaploader] Checking if file '${tempData.folderRelative}/${file}' exists..`);
 			const exists = fs.existsSync(`${tempData.folder}/${file}`);
 			if (!exists) {
-				if (file == "meta.json") continue;
+				if (file == "meta.json") {
+					tempData.meta = JSON.parse(JSON.stringify(mapDataTemplate.meta));
+					continue;
+				}
 				return loadingError(`Custom map files are missing from ${mapFolder}. Please make sure to place the custom map files in the correct location.`);
 			}
 			let data = fs.readFileSync(`${tempData.folderRelative}/${file}`);
