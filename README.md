@@ -6,8 +6,6 @@ Sandustry Custom Map Loader (CML) is a mod that allows the easy creation and sel
 
 **_Note: The Sandustry Modloader must be installed beforehand_**
 
-**Second Note: Currently the Map Loader requires a dev build of the modloader, which can be found [here](https://git.rendezvous.dev/shadowcomputer/sandustry-modloader/-/jobs/1068/artifacts/download?file_type=archive)**
-
 To install the custom map loader, locate the `mods` folder created by the Sandustry Modloader. Once you find this folder, download [custommaploader.js](https://github.com/Electric131/Sandustry-CustomMapLoader/releases/latest/download/custommaploader.js) and put it into that folder.
 
 After running the game with the mod for the first time, you should see a dropdown (labeled "Select Map") in the main menu as well as a `maps` folder located inside the `mods` folder.
