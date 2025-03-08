@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "2.2.1",
+	version: "2.2.2",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -445,7 +445,7 @@ async function loadMap(mapName) {
 		tempData.width = tempData.images["map_blueprint_playtest.png"].width;
 		for (const image of Object.keys(tempData.images)) {
 			if (tempData.images[image].width != tempData.width && image != "fog_playtest.png") {
-				return loadingError(`Image dimension mismatch: '${mapFolder}' is not the same width or height as main image.`);
+				return loadingError(`Image dimension mismatch: '${mapFolder}/${image}' is not the same width or height as main image.`);
 			}
 		}
 		tempData.rawScale = tempData.width / 1280; // Map width divided by default map width
