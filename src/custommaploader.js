@@ -1267,7 +1267,7 @@ exports.patches = [
 		// Also yes this is incredibly repetetive but I didn't want to add an internal function for this
 		type: "replace",
 		from: "r.y=s,t.shared.playerPos[0]",
-		to: "r.y=s;if(CML.internals.scriptExportsHas('onPlayerMoved')&&CML.scriptAPI.helpers.round(t.shared.playerPos[0],1000)!=CML.scriptAPI.helpers.round(r.x,1000)||CML.scriptAPI.helpers.round(t.shared.playerPos[1],1000)!=CML.scriptAPI.helpers.round(r.y,1000)){CML.mapData.script.exports.onPlayerMoved({x:CML.scriptAPI.helpers.round(t.shared.playerPos[0],1000),y:CML.scriptAPI.helpers.round(t.shared.playerPos[1],1000)},{x:CML.scriptAPI.helpers.round(r.x,1000),y:CML.scriptAPI.helpers.round(r.y,1000)})};t.shared.playerPos[0]",
+		to: "r.y=s;if(CML.internals.scriptExportsHas('onPlayerMoved')&&(CML.scriptAPI.helpers.round(t.shared.playerPos[0],1000)!=CML.scriptAPI.helpers.round(r.x,1000)||CML.scriptAPI.helpers.round(t.shared.playerPos[1],1000)!=CML.scriptAPI.helpers.round(r.y,1000))){CML.mapData.script.exports.onPlayerMoved({x:CML.scriptAPI.helpers.round(t.shared.playerPos[0],1000),y:CML.scriptAPI.helpers.round(t.shared.playerPos[1],1000)},{x:CML.scriptAPI.helpers.round(r.x,1000),y:CML.scriptAPI.helpers.round(r.y,1000)})};t.shared.playerPos[0]",
 		expectedMatches: 1,
 	},
 ];
