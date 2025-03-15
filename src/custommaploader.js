@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "3.0.0",
+	version: "3.0.1",
 	dependencies: [],
 	modauthor: "Electric131",
 };
