@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "2.2.2",
+	version: "3.0.0",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -8,31 +8,35 @@ exports.modinfo = {
 const mapsFolder = "./mods/maps";
 
 const templateColors = {
-	Empty: "255, 255, 255",
-	Bedrock: "170, 170, 170",
-	SurfaceWater: "102, 0, 255",
-	Ice: "102, 204, 255",
-	RevealedFog: "153, 0, 0",
-	CaveSandSoil: "0, 0, 0",
-	Grass: "0, 255, 0",
-	Moss: "0, 224, 0",
-	Divider: "0, 102, 0",
-	SporeSoil: "255, 255, 0",
-	FreezingIce: "204, 255, 255",
-	CaveFreezingIce: "153, 255, 255",
-	Fog: "153, 51, 0",
-	JetpackFog: "255, 0, 153",
-	JetpackFogWater: "102, 102, 255",
-	BedrockFog: "102, 102, 102",
-	FogWater: "153, 102, 255",
-	FogLava: "255, 102, 0",
-	Fluxite: "175, 0, 224",
-	RedsandSoil: "255, 85, 0",
-	Crackstone: "205, 139, 139",
-	DarkFog: "51, 51, 51",
-	SandSoil: "0, 0, 255",
-	Scoria: "38, 0, 0",
-	GoldSoil: "127, 127, 0",
+	elements: {
+		// Basic color translations in switch statement
+		Empty: "255, 255, 255",
+		Bedrock: "170, 170, 170",
+		SurfaceWater: "102, 0, 255",
+		Ice: "102, 204, 255",
+		RevealedFog: "153, 0, 0",
+		// Advanced translations with table modification
+		CaveSandSoil: "0, 0, 0",
+		Grass: "0, 255, 0",
+		Moss: "0, 224, 0",
+		Divider: "0, 102, 0",
+		SporeSoil: "255, 255, 0",
+		FreezingIce: "204, 255, 255",
+		CaveFreezingIce: "153, 255, 255",
+		Fog: "153, 51, 0",
+		JetpackFog: "255, 0, 153",
+		JetpackFogWater: "102, 102, 255",
+		BedrockFog: "102, 102, 102",
+		FogWater: "153, 102, 255",
+		FogLava: "255, 102, 0",
+		Fluxite: "175, 0, 224",
+		RedsandSoil: "255, 85, 0",
+		Crackstone: "205, 139, 139",
+		DarkFog: "51, 51, 51",
+		RevealedFogWater: "0, 0, 255",
+		Scoria: "38, 0, 0",
+		GoldSoil: "127, 127, 0",
+	},
 };
 
 // The base map data for every map
@@ -72,6 +76,9 @@ const mapDataTemplate = {
 			min: 200,
 		},
 		colors: templateColors,
+	},
+	script: {
+		raw: "",
 	},
 };
 
@@ -348,7 +355,6 @@ async function loadMap(mapName) {
 		name: mapName,
 		folderRelative: mapFolder,
 		folder: globalThis.resolvePathRelativeToExecutable(mapFolder),
-		meta: {},
 	});
 	if (mapName != "default") {
 		let fileError;
@@ -359,6 +365,7 @@ async function loadMap(mapName) {
 			"map_blueprint_playtest_sensors.png",
 			"fog_playtest.png",
 			"meta.json",
+			"script.js",
 		];
 		let mainBuffer = Buffer.from("");
 		for (const file of mapFiles) {
@@ -366,7 +373,9 @@ async function loadMap(mapName) {
 			const exists = fs.existsSync(`${tempData.folder}/${file}`);
 			if (!exists) {
 				if (file == "meta.json") {
-					tempData.meta = JSON.parse(JSON.stringify(mapDataTemplate.meta));
+					continue;
+				}
+				if (file == "script.js") {
 					continue;
 				}
 				return loadingError(`Custom map files are missing from ${mapFolder}. Please make sure to place the custom map files in the correct location.`);
@@ -383,30 +392,29 @@ async function loadMap(mapName) {
 						fileError = loadingError(fail);
 					}
 					function recursiveMetaCheck(modified, data, defaults, path = ["meta"]) {
-						for (const key of Object.keys(defaults)) {
-							if (data[key]) {
-								let localPath = path.concat(key);
-								const pathString = localPath.join(".");
-								if (typeof data[key] != typeof defaults[key]) {
-									return `Value at meta path '${pathString}' does not match the expected type.`;
+						for (const [key, value] of Object.entries(data)) {
+							let localPath = path.concat(key);
+							const pathString = localPath.join(".");
+							if (defaults.hasOwnProperty(key) && typeof value != typeof defaults[key]) {
+								return `Value at meta path '${pathString}' does not match the expected type.`;
+							}
+							if (typeof value == "object") {
+								if (skipDefaults.includes(pathString)) {
+									modified[key] = value;
+									continue;
 								}
-								if (typeof data[key] == "object") {
-									if (skipDefaults.includes(pathString)) {
-										modified[key] = data[key];
-										continue;
-									}
-									modified[key] = {};
-									let fail = recursiveMetaCheck(modified[key], data[key], defaults[key], localPath);
-									if (fail) return fail;
-								} else {
-									modified[key] = data[key];
-								}
+								if (!defaults.hasOwnProperty(key)) modified[key] = value;
+								let fail = recursiveMetaCheck(modified[key], value, defaults.hasOwnProperty(key) ? defaults[key] : {}, localPath);
+								if (fail) return fail;
 							} else {
-								modified[key] = JSON.parse(JSON.stringify(defaults[key]));
+								modified[key] = value;
 							}
 						}
 						return;
 					}
+					break;
+				case "script.js":
+					tempData.script.raw = data.toString();
 					break;
 				default: // Default case is for images
 					const width = data.readUInt32BE(16);
@@ -428,7 +436,6 @@ async function loadMap(mapName) {
 		log("[custommaploader] Using default map data..");
 		// Yes, I'm forcing meta settings for specifically the default map.. I'm bad :(
 		// I wanted to avoid this, but I prefer custom maps have different defaults while keeping the default map the same
-		tempData.meta = JSON.parse(JSON.stringify(mapDataTemplate.meta));
 		tempData.meta = Object.assign(tempData.meta, {
 			fog: {
 				startY: 3400,
@@ -444,7 +451,7 @@ async function loadMap(mapName) {
 	if (tempData.images["map_blueprint_playtest.png"]) {
 		tempData.width = tempData.images["map_blueprint_playtest.png"].width;
 		for (const image of Object.keys(tempData.images)) {
-			if (tempData.images[image].width != tempData.width && image != "fog_playtest.png") {
+			if (tempData.images[image].width != tempData.width) {
 				return loadingError(`Image dimension mismatch: '${mapFolder}/${image}' is not the same width or height as main image.`);
 			}
 		}
@@ -461,7 +468,7 @@ async function loadMap(mapName) {
 
 function catchFile({ request }) {
 	if (inMenu) return false;
-	if (!mapData) throw new Error("[custommaploader] Map data was not ready when image was requested.");
+	if (!mapData) throw new Error("[custommaploader] Map data was not ready when image was requested");
 	if (!mapData.valid) return false;
 	let file;
 	logDebug(`[custommaploader] Parsing image url '${request.url}'`);
@@ -524,7 +531,7 @@ exports.api = {
 		requiresBaseResponse: false,
 		getFinalResponse: async () => {
 			await loadMap();
-			if (!mapData) throw new Error("[custommaploader] FATAL: Map data was not ready after loading.");
+			if (!mapData) throw new Error("[custommaploader] FATAL: Map data was not ready after loading");
 			const body = Buffer.from(JSON.stringify(mapData)).toString("base64");
 			return { body, contentType: "application/json" };
 		},
@@ -533,8 +540,7 @@ exports.api = {
 		requiresBaseResponse: false,
 		getFinalResponse: async () => {
 			inMenu = true;
-			const body = Buffer.from("").toString("base64");
-			return { body, contentType: "application/text" };
+			return { body: "", contentType: "text/plain" };
 		},
 	},
 	"custommaploader/lasterror": {
@@ -586,242 +592,519 @@ exports.api = {
 	},
 };
 
-globalThis.CML_menuWarn = function (originalFunction) {
-	if (globalThis.CML_mapWarn) {
-		const popup = document.createElement("div");
-		popup.innerHTML = `
-		<div style="
-			position: fixed; inset: 0; display: flex;
-			justify-content: center; align-items: center;
-			background: rgba(0, 0, 0, 0.5); z-index: 9999;">
-			<div style="
-			background: rgba(0, 0, 0, 0.8); padding: 20px; padding-top: 0;
-			border-radius: 10px; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-			text-align: center;">
-			<p style="color: red; font-size: 25pt">Map Warning</h2>
-			<p style="color: white; max-width: 500px">${globalThis.CML_mapWarn}</p>
-			<p style="color: white; margin-top: 10px">Are you sure you want to proceed?</p>
-			<div style="margin-top: 15px; display: flex; justify-content: center; gap: 10px;">
-				<button id="CML_cancel" style="
-				padding: 8px 15px; background: red;
-				color: white; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
-				<button id="CML_confirm" style="
-				padding: 8px 15px; background: green;
-				color: white; border: none; border-radius: 5px; cursor: pointer;">Confirm</button>
-			</div>
-			</div>
-		</div>`;
-
-		document.body.appendChild(popup);
-
-		document.getElementById("CML_confirm").addEventListener("click", () => {
-			originalFunction();
-			popup.remove();
-		});
-
-		document.getElementById("CML_cancel").addEventListener("click", () => {
-			popup.remove();
-		});
-	} else {
-		originalFunction();
-	}
-};
-
-globalThis.CML_newGame = function (originalFunction, saveId) {
-	// If a save is given check the map hash
-	if (saveId && globalThis.CML_maps) {
-		return new Promise(async (res, rej) => {
-			try {
-				const worldHash = JSON.parse((await (await fetch("custommaploader/loadsave/" + saveId)).text()).split("\n")[1]).world.mapHash;
-				const selected = globalThis.CML_maps[globalThis.CML_selectedMap];
-				if (worldHash && selected && selected.hash != worldHash) {
-					globalThis.CML_mapWarn = "The save you are loading was created with a different map than the one that is currently active! This could cause potential errors!";
-				}
-				globalThis.CML_menuWarn(originalFunction);
-				res();
-			} catch {
-				logError(`[custommaploader] Error when parsing info for save '${saveId}'`);
-				rej();
-			}
-		});
-	} else {
-		globalThis.CML_menuWarn(originalFunction);
-	}
-};
-
-globalThis.CML_initColors = function () {
-	let data = globalThis.CML_mapData;
-	if (window.location.href.endsWith("index.html")) {
-		data = CML_tryGetData(); // Grab defaults if in menu
-	}
-	if (!data) throw new Error("[custommaploader] Map data was not ready during color init");
-	globalThis.CML_loadedColors = {};
-	const colors = data.meta.colors;
-	// Swap keys and values of colors
-	for (const tile of Object.keys(colors)) {
-		if (Object.keys(globalThis.CML_loadedColors).includes(colors[tile])) {
-			throw new Error(`[custommaploader] Duplicate color found during world creation: ${colors[tile]}`);
-		}
-		globalThis.CML_loadedColors[colors[tile]] = tile;
-	}
-};
-
-const basicColorMap = {
-	Empty: "255, 255, 255",
-	Bedrock: "170, 170, 170",
-	SurfaceWater: "102, 0, 255",
-	Ice: "102, 204, 255",
-	RevealedFog: "153, 0, 0", // Not actually Fog, it's just Empty with a dirt background..?
-};
-
-// Converts basicColorMap - which is only basic colors in the switch statement
-globalThis.CML_convertColor = function (color) {
-	if (!globalThis.CML_loadedColors) globalThis.CML_initColors();
-	if (!Object.keys(globalThis.CML_loadedColors).includes(color)) return color;
-	if (!Object.keys(basicColorMap).includes(globalThis.CML_loadedColors[color])) return color;
-	return basicColorMap[globalThis.CML_loadedColors[color]];
-};
-
-const advancedColorMap = {
-	CaveSandSoil: "0, 0, 0",
-	Grass: "0, 255, 0",
-	Moss: "0, 224, 0",
-	Divider: "0, 102, 0",
-	SporeSoil: "255, 255, 0",
-	FreezingIce: "204, 255, 255",
-	CaveFreezingIce: "153, 255, 255",
-	Fog: "153, 51, 0",
-	JetpackFog: "255, 0, 153",
-	JetpackFogWater: "102, 102, 255",
-	BedrockFog: "102, 102, 102",
-	FogWater: "153, 102, 255",
-	FogLava: "255, 102, 0",
-	Fluxite: "175, 0, 224",
-	RedsandSoil: "255, 85, 0",
-	Crackstone: "205, 139, 139",
-	DarkFog: "51, 51, 51", // Only used in the artifact rooms from what I can tell, is just a darker version of BedrockFog
-	SandSoil: "0, 0, 255", // Blame Lantto... apparently this is just SandSoil without dirt background
-};
-
-const extraColorMap = {
-	Scoria: "38, 0, 0",
-	GoldSoil: "127, 127, 0",
-};
-
-// Converts advancedColorMap - which is the extra list of colors stored as `Fd` currently
-// Then also adds any custom colors defined
-globalThis.CML_addExtraColors = function (solids) {
-	if (!globalThis.CML_colorTable) throw new Error("[custommodloader] Color table was not ready at world creation");
-	const original = JSON.parse(JSON.stringify(globalThis.CML_colorTable));
-	let data = CML_tryGetData();
-	if (!globalThis.CML_loadedColors) globalThis.CML_initColors();
-	for (const tile of Object.values(globalThis.CML_loadedColors)) {
-		if (!advancedColorMap[tile]) continue;
-		globalThis.CML_colorTable[data.meta.colors[tile]] = original[advancedColorMap[tile]];
-	}
-	const extraColorLookup = {
-		Scoria: {
-			bg: solids.SandSoil,
-			fg: solids.Obsidian,
-		},
-		GoldSoil: {
-			bg: solids.SandSoil,
-			fg: solids.GoldSoil,
-		},
+// Injected to the start of bundle.js, and nothing local will be loaded yet
+init = function () {
+	globalThis.CML = {
+		scriptAPI: {},
+		internals: {}, // Used internally by the mod to store info
 	};
-
-	for (const tile of Object.keys(extraColorMap)) {
-		globalThis.CML_colorTable[extraColorMap[tile]] = extraColorLookup[tile];
-	}
-};
-
-globalThis.CML_playerSpawnPos = function (constants) {
-	if (!globalThis.CML_mapData) throw new Error("[custommaploader] Map data was not ready when player spawn was requested.");
-	return {
-		x: globalThis.CML_mapData.meta.spawn.x * constants.cellSize,
-		y: globalThis.CML_mapData.meta.spawn.y * constants.cellSize,
-	};
-};
-
-globalThis.CML_playerUnstuck = function (constants) {
-	// Ok genuinely how at this point? How would map data not be ready?
-	if (!globalThis.CML_mapData) throw new Error("[custommaploader] Map data was not ready when player unstuck was requested.");
-	gameInstance.state.store.player.x = globalThis.CML_mapData.meta.unstuck.x * constants.cellSize;
-	gameInstance.state.store.player.y = globalThis.CML_mapData.meta.unstuck.y * constants.cellSize;
-};
-
-globalThis.CML_landingHelper = function (_) {
-	const input = gameInstance.state.session.input;
-	const soundEngine = gameInstance.state.session.soundEngine;
-	switch (_.instruction) {
-		case "boostup":
-			if (input.action.boost == false) {
-				_.playSound(soundEngine, "boost");
-				_.playSound(soundEngine, "boost_overlay");
-			}
-			input.action.boost = "up";
-			break;
-		case "boostslow":
-			if (input.action.boost == false) {
-				_.playSound(soundEngine, "boost");
-				_.playSound(soundEngine, "boost_overlay");
-			}
-			input.action.boost = true;
-			break;
-		case "endboost":
-			_.stopSound(soundEngine, "boost");
-			_.stopSound(soundEngine, "boost_overlay");
-			input.action.boost = false;
-			break;
-		case "end":
-			_.endCallback();
-			break;
-	}
-};
-
-globalThis.CML_playerLanding = function (playSound, stopSound, endCallback) {
-	if (!globalThis.CML_mapData) throw new Error("[custommaploader] Map data was not ready when player landing was requested.");
-	const elapsedTime = gameInstance.state.store.scene.start + gameInstance.state.store.meta.time;
-	if (elapsedTime >= 8000) return endCallback(); // Cut off sequence at 8 seconds as a fallback
-	if (!globalThis.CML_landingIndex) globalThis.CML_landingIndex = 0;
-	const sequenceLength = Object.keys(globalThis.CML_mapData.meta.introSequence).length;
-	if (globalThis.CML_mapData.meta.introSequence && sequenceLength > 0) {
-		if (globalThis.CML_landingIndex >= sequenceLength) return endCallback();
-		let entry = Object.entries(globalThis.CML_mapData.meta.introSequence)[globalThis.CML_landingIndex];
-		if (elapsedTime >= entry[0]) {
-			globalThis.CML_landingHelper({
-				instruction: entry[1],
-				playSound,
-				stopSound,
-				endCallback,
+	const searchParams = new URLSearchParams(window.location.search);
+	const inMainMenu = searchParams.size === 0 || (searchParams.has("skip_version_check") && searchParams.size === 1);
+	if (!inMainMenu) {
+		// Fetch map data and load it into the global scope
+		fetch("custommaploader/mapdata").then((response) => {
+			response.json().then((data) => {
+				if (!data.valid) window.location.href = window.location.pathname;
+				CML.mapData = data;
+				console.log(`[custommaploader] Map data ready at ${performance.now()}`);
 			});
-			globalThis.CML_landingIndex++;
-		}
+		});
+	} else {
+		// Tell api the player is in the main menu
+		fetch("custommaploader/inmenu");
 	}
 };
 
-globalThis.CML_playerFog = function (y) {
-	// These are defined by the game
-	const data = globalThis.CML_tryGetData().meta;
-	const [start, end, max, min] = [data.fog.startY, data.fog.endY, data.fog.max, data.fog.min];
-	if (min > max || min < 0 || start > end) throw new Error("[custommaploader] Invalid fog settings.");
-	if (y <= start) return max;
-	if (y >= end) return min;
-	return max - (y - start) * ((max - min) / (end - start));
-};
+const particleCache = {};
 
-// Allows requesting data, but resorts to defaults if not ready
-globalThis.CML_tryGetData = function () {
-	if (!globalThis.CML_mapData) return JSON.parse(JSON.stringify(mapDataTemplate));
-	return globalThis.CML_mapData;
-};
+if (globalThis.CML) {
+	// #region Internals
+	globalThis.CML.internals.menuWarn = function (originalFunction) {
+		if (CML.internals.mapWarn) {
+			const popup = document.createElement("div");
+			popup.innerHTML = `
+			<div style="
+				position: fixed; inset: 0; display: flex;
+				justify-content: center; align-items: center;
+				background: rgba(0, 0, 0, 0.5); z-index: 9999;">
+				<div style="
+				background: rgba(0, 0, 0, 0.8); padding: 20px; padding-top: 0;
+				border-radius: 10px; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+				text-align: center;">
+				<p style="color: red; font-size: 25pt">Map Warning</h2>
+				<p style="color: white; max-width: 500px">${globalThis.CML_mapWarn}</p>
+				<p style="color: white; margin-top: 10px">Are you sure you want to proceed?</p>
+				<div style="margin-top: 15px; display: flex; justify-content: center; gap: 10px;">
+					<button id="CML_cancel" style="
+					padding: 8px 15px; background: red;
+					color: white; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+					<button id="CML_confirm" style="
+					padding: 8px 15px; background: green;
+					color: white; border: none; border-radius: 5px; cursor: pointer;">Confirm</button>
+				</div>
+				</div>
+			</div>`;
+
+			document.body.appendChild(popup);
+
+			document.getElementById("CML_confirm").addEventListener("click", () => {
+				originalFunction();
+				popup.remove();
+			});
+
+			document.getElementById("CML_cancel").addEventListener("click", () => {
+				popup.remove();
+			});
+		} else {
+			originalFunction();
+		}
+	};
+
+	CML.internals.newGame = function (originalFunction, saveId) {
+		// If a save is given check the map hash
+		if (saveId && globalThis.CML_maps) {
+			return new Promise(async (res, rej) => {
+				try {
+					const worldHash = JSON.parse((await (await fetch("custommaploader/loadsave/" + saveId)).text()).split("\n")[1]).world.mapHash;
+					const selected = CML.maps[CML.selectedMap];
+					if (worldHash && selected && selected.hash != worldHash) {
+						CML.internals.mapWarn = "The save you are loading was created with a different map than the one that is currently active! This could cause potential errors!";
+					}
+					CML.internals.menuWarn(originalFunction);
+					res();
+				} catch {
+					logError(`[custommaploader] Error when parsing info for save '${saveId}'`);
+					rej();
+				}
+			});
+		} else {
+			CML.internals.menuWarn(originalFunction);
+		}
+	};
+
+	CML.internals.initColors = function () {
+		let data = CML.internals.tryGetData();
+		if (window.location.href.endsWith("index.html")) {
+			data = CML.internals.tryGetData(); // Grab defaults if in menu
+		}
+		if (!data) throw new Error("[custommaploader] Map data was not ready during color init");
+		CML.internals.loadedColors = {};
+		const colors = data.meta.colors.elements;
+		// Swap keys and values of colors
+		for (const tile of Object.keys(colors)) {
+			if (Object.keys(CML.internals.loadedColors).includes(colors[tile])) {
+				throw new Error(`[custommaploader] Duplicate color found during world creation: ${colors[tile]}`);
+			}
+			if (typeof colors[tile] != "object") CML.internals.loadedColors[colors[tile]] = tile;
+		}
+	};
+
+	const basicColorMap = {
+		Empty: "255, 255, 255",
+		Bedrock: "170, 170, 170",
+		SurfaceWater: "102, 0, 255",
+		Ice: "102, 204, 255",
+		RevealedFog: "153, 0, 0", // Not actually Fog, it's just Empty with a dirt background..?
+	};
+
+	// Converts basicColorMap - which is only basic colors in the switch statement
+	CML.internals.convertColor = function (color) {
+		if (!CML.internals.loadedColors) CML.internals.initColors();
+		if (!Object.keys(CML.internals.loadedColors).includes(color)) return color;
+		if (!Object.keys(basicColorMap).includes(CML.internals.loadedColors[color])) return color;
+		return basicColorMap[CML.internals.loadedColors[color]];
+	};
+
+	const advancedColorMap = {
+		CaveSandSoil: "0, 0, 0",
+		Grass: "0, 255, 0",
+		Moss: "0, 224, 0",
+		Divider: "0, 102, 0",
+		SporeSoil: "255, 255, 0",
+		FreezingIce: "204, 255, 255",
+		CaveFreezingIce: "153, 255, 255",
+		Fog: "153, 51, 0",
+		JetpackFog: "255, 0, 153",
+		JetpackFogWater: "102, 102, 255",
+		BedrockFog: "102, 102, 102",
+		FogWater: "153, 102, 255",
+		FogLava: "255, 102, 0",
+		Fluxite: "175, 0, 224",
+		RedsandSoil: "255, 85, 0",
+		Crackstone: "205, 139, 139",
+		DarkFog: "51, 51, 51", // Only used in the artifact rooms from what I can tell, is just a darker version of BedrockFog
+		SandSoil: "0, 0, 255", // Blame Lantto... apparently this is just SandSoil without dirt background
+	};
+
+	function extraColorMap() {
+		const solids = CML.internals.solids;
+		return {
+			Scoria: {
+				bg: solids.SandSoil,
+				fg: solids.Obsidian,
+			},
+			GoldSoil: {
+				bg: solids.SandSoil,
+				fg: solids.GoldSoil,
+			},
+		};
+	}
+
+	// Converts advancedColorMap - which is the extra list of colors stored as `Fd` currently
+	// Then also adds any custom colors defined
+	CML.internals.addExtraColors = function () {
+		if (!CML.internals.colorTable) throw new Error("[custommodloader] Color table was not ready at world creation");
+		const original = JSON.parse(JSON.stringify(CML.internals.colorTable));
+		let data = CML.internals.tryGetData();
+		if (!CML.internals.loadedColors) CML.internals.initColors();
+		for (const tile of Object.values(CML.internals.loadedColors)) {
+			if (!advancedColorMap[tile]) continue;
+			CML.internals.colorTable[data.meta.colors.elements[tile]] = original[advancedColorMap[tile]];
+		}
+
+		const extraColorLookup = extraColorMap();
+		for (const tile of Object.keys(extraColorLookup)) {
+			CML.internals.colorTable[data.meta.colors.elements[tile]] = extraColorLookup[tile];
+		}
+
+		for (const [color, elementData] of Object.entries(data.meta.colors.elements)) {
+			if (typeof elementData == "object") {
+				if (elementData.bg) {
+					if (!CML.internals.solids.hasOwnProperty(elementData.bg)) {
+						throw new Error(`[custommaploader] Unknown background element '${elementData.bg}' in element color list`);
+					}
+					elementData.bg = CML.internals.solids[elementData.bg];
+				}
+				if (elementData.fg) {
+					if (!CML.internals.solids.hasOwnProperty(elementData.fg)) {
+						throw new Error(`[custommaploader] Unknown foreground element '${elementData.fg}' in element color list`);
+					}
+					elementData.fg = CML.internals.solids[elementData.fg];
+				}
+				CML.internals.colorTable[color] = elementData;
+			}
+		}
+	};
+
+	CML.internals.playerSpawnPos = function (constants) {
+		const data = CML.internals.tryGetData();
+		return {
+			x: data.meta.spawn.x * constants.cellSize,
+			y: data.meta.spawn.y * constants.cellSize,
+		};
+	};
+
+	CML.internals.playerUnstuck = function (constants) {
+		// Ok genuinely how at this point? How would map data not be ready?
+		if (!CML.mapData) throw new Error("[custommaploader] Map data was not ready when player unstuck was requested.");
+		gameInstance.state.store.player.x = CML.mapData.meta.unstuck.x * constants.cellSize;
+		gameInstance.state.store.player.y = CML.mapData.meta.unstuck.y * constants.cellSize;
+	};
+
+	CML.internals.landingHelper = function (_) {
+		const input = gameInstance.state.session.input;
+		const soundEngine = gameInstance.state.session.soundEngine;
+		switch (_.instruction) {
+			case "boostup":
+				if (input.action.boost == false) {
+					_.playSound(soundEngine, "boost");
+					_.playSound(soundEngine, "boost_overlay");
+				}
+				input.action.boost = "up";
+				break;
+			case "boostslow":
+				if (input.action.boost == false) {
+					_.playSound(soundEngine, "boost");
+					_.playSound(soundEngine, "boost_overlay");
+				}
+				input.action.boost = true;
+				break;
+			case "endboost":
+				_.stopSound(soundEngine, "boost");
+				_.stopSound(soundEngine, "boost_overlay");
+				input.action.boost = false;
+				break;
+			case "end":
+				_.callbackIntercept();
+				break;
+		}
+	};
+
+	CML.internals.playerLanding = function (playSound, stopSound, endCallback) {
+		const callbackIntercept = () => {
+			if (CML.internals.scriptExportsHas("onPlayerLanded")) {
+				CML.mapData.script.exports.onPlayerLanded();
+			}
+			endCallback();
+		};
+		if (!CML.mapData) throw new Error("[custommaploader] Map data was not ready when player landing was requested.");
+		const elapsedTime = gameInstance.state.store.scene.start + gameInstance.state.store.meta.time;
+		if (elapsedTime >= 8000) return callbackIntercept(); // Cut off sequence at 8 seconds as a fallback
+		if (!CML.internals.landingIndex) CML.internals.landingIndex = 0;
+		const sequenceLength = Object.keys(CML.mapData.meta.introSequence).length;
+		if (CML.mapData.meta.introSequence && sequenceLength > 0) {
+			if (CML.internals.landingIndex >= sequenceLength) return callbackIntercept();
+			let entry = Object.entries(CML.mapData.meta.introSequence)[CML.internals.landingIndex];
+			if (elapsedTime >= entry[0]) {
+				CML.internals.landingHelper({
+					instruction: entry[1],
+					playSound,
+					stopSound,
+					callbackIntercept,
+				});
+				CML.internals.landingIndex++;
+			}
+		}
+	};
+
+	CML.internals.playerFog = function (y) {
+		// These are defined by the game
+		const data = CML.internals.tryGetData().meta;
+		const [start, end, max, min] = [data.fog.startY, data.fog.endY, data.fog.max, data.fog.min];
+		if (min > max || min < 0 || start > end) throw new Error("[custommaploader] Invalid fog settings.");
+		if (y <= start) return max;
+		if (y >= end) return min;
+		return max - (y - start) * ((max - min) / (end - start));
+	};
+
+	// Allows requesting data, but resorts to defaults if not ready
+	CML.internals.tryGetData = function () {
+		if (!CML.mapData) return JSON.parse(JSON.stringify(mapDataTemplate));
+		return CML.mapData;
+	};
+	// #endregion
+	// #region Script API + Related Internals
+	CML.internals.scriptExportsHas = function (value) {
+		return Object.hasOwn(CML.mapData.script.exports, value);
+	};
+
+	CML.internals.timerCallback = async function () {
+		if (!CML.mapData || !CML.mapData.script) return; // Map data is not ready yet, so we can wait
+
+		const scriptExports = CML.mapData.script.exports;
+		if (CML.internals.scriptExportsHas("onUpdate")) {
+			scriptExports.onUpdate();
+		}
+		if (CML.internals.scriptExportsHas("pixelListeners")) {
+			if (typeof scriptExports.pixelListeners != "object") throw new Error("[custommaploader] Map script exported pixelListeners that is not of type object");
+			let mapData;
+			try {
+				mapData = gameInstance.state.shared.mapData;
+			} catch {
+				throw new Error("[custommaploader] Pixel data was not ready when pixelListeners was run");
+			}
+			for (const [pixel, callback] of Object.entries(scriptExports.pixelListeners)) {
+				let [x, y] = pixel.split(", ");
+				[x, y] = [parseInt(x), parseInt(y)]; // Parse x and y to ints
+				let pixelData = mapData.data[x + y * mapData.width];
+				if (particleCache[pixel] && particleCache[pixel] != pixelData) {
+					callback({
+						oldTypeRaw: particleCache[pixel],
+						newTypeRaw: pixelData,
+						oldType: gameInstance.state.session.colors.cellTypeOrElementTypeByColorId[particleCache[pixel]],
+						newType: gameInstance.state.session.colors.cellTypeOrElementTypeByColorId[pixelData],
+					});
+				}
+				particleCache[pixel] = pixelData;
+			}
+		}
+	};
+
+	CML.scriptAPI.spawnBlock = function (x, y, type) {
+		if (!Object.hasOwn(CML.internals.spawnBlockData.blocks, type)) {
+			throw new Error("[custommaploader] Script attempted to spawn an invalid block type");
+		}
+		return CML.internals.spawnBlockData.spawnBlock(
+			gameInstance.state,
+			{
+				x: x,
+				y: y,
+			},
+			{
+				structureType: CML.internals.spawnBlockData.blocks[type],
+			}
+		);
+	};
+
+	CML.scriptAPI.spawnMovingParticle = function (x, y, velx, vely, type) {
+		if (!CML.internals.particles.hasOwnProperty(type)) throw new Error(`[custommaploader] Unknown particle type '${type}'`);
+		const particle = CML.internals.createParticle(CML.internals.particles.Particle, x, y, {
+			element: CML.internals.createParticle(CML.internals.particles[type], x, y),
+			velocity: {
+				x: velx,
+				y: vely,
+			},
+		});
+		CML.scriptAPI.setElement(x, y, particle);
+	};
+
+	CML.scriptAPI.spawnParticle = function (x, y, type, data = {}) {
+		if (!CML.internals.particles.hasOwnProperty(type)) throw new Error(`[custommaploader] Unknown particle type '${type}'`);
+		const particle = CML.internals.createParticle(CML.internals.particles[type], x, y, data);
+		CML.scriptAPI.setElement(x, y, particle);
+	};
+
+	CML.scriptAPI.setElement = function (x, y, data) {
+		if (CML.internals.solids.hasOwnProperty(data)) {
+			data = CML.internals.solids[data];
+		}
+		CML.internals.setElement(gameInstance.state, x, y, data);
+		if (Number.isInteger(data)) {
+			// If data is an integer, tell thread to redraw neighboring cells
+			// Warning: '22' must be updated to reflect 'f.RedrawSurroundingCells'
+			gameInstance.state.environment.multithreading.simulation.post(
+				gameInstance.state,
+				CML.internals.threadHelpers.getThreadIndexFromCellX(x, gameInstance.state.environment.multithreading.simulation.threads.length),
+				[22, [x, y]]
+			);
+		}
+	};
+
+	CML.scriptAPI.isPlaceable = function (x, y) {
+		return CML.internals.positionClear(gameInstance.state, x, y);
+	};
+
+	CML.scriptAPI.revealFog = function (x, y) {
+		gameInstance.state.environment.multithreading.simulation.postAll(gameInstance.state, [14, x, y]);
+	};
+
+	// Define some simple helper/util functions
+	CML.scriptAPI.helpers = {
+		// amount must be between 0 and 1
+		lerp: (amount, a, b) => {
+			return a + (b - a) * amount;
+		},
+		map: (num, inMin, inMax, outMin, outMax) => {
+			return ((num - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+		},
+		// Round num to a specified precision. e.g. 10.19 at precision of 10 = 10.2
+		round: (num, precision) => Math.round(num * precision) / precision,
+	};
+
+	// Define some basic easing functions for the user
+	CML.scriptAPI.basicEasing = {
+		linear: (t) => t,
+		in_out: (t) => {
+			return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+		},
+		in_out_custom: (inPercent = 0.2) => {
+			if (inPercent > 1) throw new Error("[custommaploader] in_out_custom exceeds max range");
+			outPercent = 1 - inPercent;
+			return (t) => {
+				if (t < inPercent) {
+					t = CML.scriptAPI.helpers.map(t, 0, inPercent, 0, 1);
+					return CML.scriptAPI.helpers.map(t * t, 0, 1, 0, inPercent);
+				}
+				t = CML.scriptAPI.helpers.map(t, 1 - outPercent, 1, 0, 1);
+				return CML.scriptAPI.helpers.map(1 - Math.pow(1 - t, 2), 0, 1, 1 - outPercent, 1);
+			};
+		},
+	};
+
+	// Note: Amount should be normalized between 0 and 1
+	CML.internals.interpolateCamera = function (startx, starty, endx, endy, amount, easing = CML.scriptAPI.basicEasing.linear) {
+		const camera = gameInstance.state.session.camera;
+		if (amount < 0 || amount > 1) return false;
+		// Apply easing function
+		amount = easing(amount);
+		// Check if new amount is valid
+		if (amount < 0 || amount > 1) return false;
+		camera.x = (startx + (endx - startx) * amount) * 4 - Math.floor(gameInstance.state.session.rendering.canvas.width / 2);
+		camera.y = (starty + (endy - starty) * amount) * 4 - Math.floor(gameInstance.state.session.rendering.canvas.height / 2);
+		return true;
+	};
+
+	CML.internals.updateCamera = function () {
+		const playerCam = {
+			x: (gameInstance.state.store.player.x + gameInstance.state.store.player.width / 2) / 4,
+			y: (gameInstance.state.store.player.y + gameInstance.state.store.player.height / 2) / 4,
+		};
+		if (CML.internals.activeCinematic) {
+			const activeCinematic = CML.internals.activeCinematic;
+			const delta = performance.now() - CML.internals.cinematicPhaseStart;
+			let data = {};
+			if (CML.internals.cinematicIndex == 0) {
+				data = {
+					startx: playerCam.x,
+					starty: playerCam.y,
+					endx: activeCinematic.data.start.x,
+					endy: activeCinematic.data.start.y,
+					easing: CML.scriptAPI.basicEasing.in_out,
+					duration: 3000,
+				};
+			} else if (activeCinematic.data.path && CML.internals.cinematicIndex > activeCinematic.data.path.length) {
+				if (CML.internals.cinematicIndex != activeCinematic.data.path.length + 1) {
+					activeCinematic.res();
+					return false;
+				}
+				data = {
+					startx: CML.internals.lastCinematicData.endx,
+					starty: CML.internals.lastCinematicData.endy,
+					endx: playerCam.x,
+					endy: playerCam.y,
+					easing: CML.scriptAPI.basicEasing.in_out,
+					duration: 3000,
+				};
+			} else {
+				const pathPoint = activeCinematic.data.path[CML.internals.cinematicIndex - 1];
+				data = {
+					startx: CML.internals.lastCinematicData.endx,
+					starty: CML.internals.lastCinematicData.endy,
+					endx: pathPoint.x,
+					endy: pathPoint.y,
+					easing: pathPoint.easing,
+					duration: pathPoint.duration,
+				};
+			}
+			try {
+				const result = CML.internals.interpolateCamera(data.startx, data.starty, data.endx, data.endy, delta / data.duration, data.easing);
+				if (!result) {
+					CML.internals.cinematicIndex++;
+					CML.internals.cinematicPhaseStart = performance.now();
+					CML.internals.lastCinematicData = data;
+				}
+			} catch {
+				throw new Error("[custommaploader] Data was not ready when updating cinematic");
+			}
+			return true;
+		}
+	};
+
+	CML.scriptAPI.playCinematic = function (data) {
+		if (CML.internals.activeCinematic) {
+			// Reject old cinematic when a new one is played
+			CML.internals.activeCinematic.rej();
+		}
+		// Return promise to execute code when cinematic is done
+		const promise = new Promise((res, rej) => {
+			gameInstance.state.session.overrideCamera = false;
+			globalThis.CML.internals.preventInput = true;
+			// Store cinematic data for use in the updateCamera function
+			globalThis.CML.internals.activeCinematic = { res, rej, data };
+			globalThis.CML.internals.cinematicIndex = 0;
+			globalThis.CML.internals.cinematicPhaseStart = performance.now();
+			document.querySelector("#ui").hidden = true;
+		});
+		promise.then(() => {
+			globalThis.CML.internals.preventInput = false;
+			document.querySelector("#ui").hidden = false;
+			// Remove traces of cinematic data
+			delete globalThis.CML.internals.activeCinematic;
+			delete globalThis.CML.internals.cinematicIndex;
+			delete globalThis.CML.internals.cinematicPhaseStart;
+			delete globalThis.CML.internals.lastCinematicData;
+		});
+		return promise;
+	};
+	// #endregion
+}
 
 exports.patches = [
 	{
 		// Very start of bundle.js - loads map data as long as path is not the main menu
 		type: "replace",
 		from: "(()=>{var e,t,n={8916:",
-		to: 'if (!window.location.href.endsWith("index.html")) { fetch("custommaploader/mapdata").then((response)=>response.json().then((data)=>{if(!data.valid){window.location.href=window.location.pathname};globalThis.CML_mapData=data;console.log(`[custommaploader] Map data ready at ${performance.now()}`);}))}else{fetch("custommaploader/inmenu")};(()=>{var e,t,n={8916:',
+		to: `(${init.toString().replace("function ()", "() =>")})();(()=>{var e,t,n={8916:`,
 		expectedMatches: 1,
 	},
 	{
@@ -835,56 +1118,77 @@ exports.patches = [
 		// Main menu 'Continue' button intercept
 		type: "replace",
 		from: 'b_("db_load=".concat(r))',
-		to: 'globalThis.CML_newGame(()=>{b_("db_load=".concat(r))}, r)',
+		to: 'CML.internals.newGame(()=>{b_("db_load=".concat(r))}, r)',
 		expectedMatches: 1,
 	},
 	{
 		// Main menu 'New' button intercept
 		type: "replace",
 		from: 'b_("new_game=true")',
-		to: 'globalThis.CML_newGame(()=>{b_("new_game=true")})',
+		to: 'CML.internals.newGame(()=>{b_("new_game=true")})',
 		expectedMatches: 1,
 	},
 	{
 		// Main menu 'Load' button intercept
 		type: "replace",
 		from: 'e&&b_("db_load="+e.id)',
-		to: 'globalThis.CML_newGame(() => {e&&b_("db_load="+e.id)}, e.id)',
+		to: 'CML.internals.newGame(() => {e&&b_("db_load="+e.id)}, e.id)',
 		expectedMatches: 1,
 	},
 	{
-		// World creation - color conversion
-		type: "regex",
-		pattern: "switch\\(b\\)",
-		replace: `b=globalThis.CML_convertColor(b);switch(b)`,
+		// Data tables created (too early for mapData to be loaded)
+		type: "replace",
+		from: "};l.Demolisher,",
+		to: `};CML.internals.positionClear=tf;CML.internals.colorTable=Fd;CML.internals.setElement=Od;`,
+		expectedMatches: 1,
+	},
+	{
+		// Thread helping functions such as 'getThreadIndexFromCellX' are defined
+		type: "replace",
+		from: "const K=q;",
+		to: `CML.internals.threadHelpers=q;const K=q;`,
 		expectedMatches: 1,
 	},
 	{
 		// World creation - pixel loop starting
 		type: "replace",
 		from: "for(var i=performance.now()",
-		to: `globalThis.CML_addExtraColors(t);for(var i=performance.now()`,
+		to: `CML.internals.particles=n;CML.internals.solids=t;CML.internals.createParticle=Fh;CML.internals.addExtraColors();for(var i=performance.now()`,
 		expectedMatches: 1,
 	},
 	{
-		// Color table creation (too early for mapData to be loaded)
+		// World creation - color conversion
 		type: "replace",
-		from: "};l.Demolisher,",
-		to: `};globalThis.CML_colorTable=Fd;`,
+		from: "switch(b)",
+		to: "b=CML.internals.convertColor(b);switch(b)",
+		expectedMatches: 1,
+	},
+	{
+		// World creation - wall data
+		type: "replace",
+		from: 'f="".concat(c,", ").concat(h,", ").concat(d);',
+		to: 'f="".concat(c,", ").concat(h,", ").concat(d);f=CML.internals.convertColor(f);',
 		expectedMatches: 1,
 	},
 	{
 		// World creation - player spawn
 		type: "replace",
 		from: "{x:363*e.cellSize,y:200*e.cellSize}",
-		to: `globalThis.CML_playerSpawnPos(e)`,
+		to: `CML.internals.playerSpawnPos(e)`,
+		expectedMatches: 1,
+	},
+	{
+		// Fixture parsing - spawns title card and starting collector
+		type: "replace",
+		from: "t.store.world.fixtures.forEach",
+		to: "CML.internals.spawnBlockData = {spawnBlock:xd, blocks:d};t.store.world.fixtures.forEach",
 		expectedMatches: 1,
 	},
 	{
 		// Unstuck button
 		type: "replace",
 		from: "t.state.store.player.x=161*e.cellSize,t.state.store.player.y=616*e.cellSize",
-		to: `globalThis.CML_playerUnstuck(e)`,
+		to: `CML.internals.playerUnstuck(e)`,
 		expectedMatches: 1,
 	},
 	{
@@ -892,56 +1196,100 @@ exports.patches = [
 		type: "regex",
 		pattern:
 			'case x\\.Intro:.*?if\\((.+?),!e\\.store\\.scene\\.triggers\\[0\\].+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+(e\\.store\\.scene\\.active=x\\.Game.+?)}break;case',
-		replace: "case x.Intro:$1;globalThis.CML_playerLanding($2, $3, function(){$4});break;case",
+		replace: "case x.Intro:$1;CML.internals.playerLanding($2, $3, function(){$4});break;case",
 		expectedMatches: 1,
 	},
 	{
 		// Player fog change
 		type: "replace",
 		from: "(l=i.y)<=3400?700:l>=4200?200:700-(l-3400)/800*500",
-		to: "globalThis.CML_playerFog(l=i.y)",
+		to: "CML.internals.playerFog(l=i.y)",
 		expectedMatches: 1,
 	},
 	{
 		// Parallax scale adjustment
 		type: "regex",
 		pattern: "n\\.session\\.camera\\.(x|y)\\/((?:1\\.5)|2)\\)",
-		replace: `n.session.camera.$1/($2*globalThis.CML_tryGetData().scale))`,
+		replace: `n.session.camera.$1/($2*CML.internals.tryGetData().scale))`,
 		expectedMatches: 4,
 	},
 	{
 		// Parallax vertical adjustment
 		type: "replace",
 		from: "Math.round(-n.session.camera.y",
-		to: `Math.round(-(n.session.camera.y+globalThis.CML_tryGetData().meta.parallaxOffset)`,
+		to: `Math.round(-(n.session.camera.y+CML.internals.tryGetData().meta.parallaxOffset)`,
 		expectedMatches: 2,
 	},
 	{
 		// Soft y limit
 		type: "replace",
 		from: "n.y<600",
-		to: "n.y<globalThis.CML_tryGetData().meta.yLimit.soft",
+		to: "n.y<CML.internals.tryGetData().meta.yLimit.soft",
 		expectedMatches: 1,
 	},
 	{
 		// Hard y limit
 		type: "replace",
 		from: "s<550?(s=550",
-		to: "s<globalThis.CML_tryGetData().meta.yLimit.hard?(s=globalThis.CML_tryGetData().meta.yLimit.hard",
+		to: "s<CML.internals.tryGetData().meta.yLimit.hard?(s=CML.internals.tryGetData().meta.yLimit.hard",
+		expectedMatches: 1,
+	},
+	{
+		// Define the script update timer name with id 100 to hopefully prevent conflicts
+		type: "replace",
+		from: 'e[e.PingPumpChunksFIX=8]="PingPumpChunksFIX"',
+		to: 'e[e.PingPumpChunksFIX=8]="PingPumpChunksFIX",e[e.CML_Timer=100]="CML_Timer"',
+		expectedMatches: 1,
+	},
+	{
+		// Setup a callback for the script timer to run every 50ms
+		type: "replace",
+		from: "up[_.PingPumpChunksFIX]={",
+		to: "up[_.CML_Timer]={interval:50,multithreading:!1,callback: async function() {await globalThis.CML.internals.timerCallback()}},up[_.PingPumpChunksFIX]={",
+		expectedMatches: 1,
+	},
+	{
+		// Return early from keydown event if preventInput is true
+		type: "replace",
+		from: "var s=sp(n);",
+		to: "var s=sp(n);if (globalThis.CML.internals.preventInput) return;",
+		expectedMatches: 1,
+	},
+	{
+		// Call the update camera function when the camera is ready to be moved
+		type: "replace",
+		from: "var t=hf(e);",
+		to: "if (CML.internals.updateCamera(hf)) return;var t=hf(e);",
+		expectedMatches: 1,
+	},
+	{
+		// Call the player moved scriptAPI callback when the player moves
+		// Also yes this is incredibly repetetive but I didn't want to add an internal function for this
+		type: "replace",
+		from: "r.y=s,t.shared.playerPos[0]",
+		to: "r.y=s;if(CML.internals.scriptExportsHas('onPlayerMoved')&&CML.scriptAPI.helpers.round(t.shared.playerPos[0],1000)!=CML.scriptAPI.helpers.round(r.x,1000)||CML.scriptAPI.helpers.round(t.shared.playerPos[1],1000)!=CML.scriptAPI.helpers.round(r.y,1000)){CML.mapData.script.exports.onPlayerMoved({x:CML.scriptAPI.helpers.round(t.shared.playerPos[0],1000),y:CML.scriptAPI.helpers.round(t.shared.playerPos[1],1000)},{x:CML.scriptAPI.helpers.round(r.x,1000),y:CML.scriptAPI.helpers.round(r.y,1000)})};t.shared.playerPos[0]",
 		expectedMatches: 1,
 	},
 ];
 
 exports.onGameLoaded = async function () {
-	if (!gameInstance.state.store.world.mapHash) gameInstance.state.store.world.mapHash = globalThis.CML_mapData.hash;
+	if (!gameInstance.state.store.world.mapHash) gameInstance.state.store.world.mapHash = CML.mapData.hash;
+
+	const scriptExports = {};
+	const scriptWrapper = new Function("exports", CML.mapData.script.raw);
+	scriptWrapper(scriptExports);
+	CML.mapData.script.exports = scriptExports;
 };
 
 exports.onMenuLoaded = async function () {
 	// Exposes maps in case other mods want to use them without refetching
-	globalThis.CML_maps = await (await fetch("custommaploader/maps")).json();
-	globalThis.CML_selectedMap = (await modConfig.get("custommaploader")).map || "default";
-	const options = Object.keys(globalThis.CML_maps).map((name) => {
-		if (name == globalThis.CML_selectedMap) return `<option value="${name}" selected>${name}</option>`;
+	CML.maps = await (await fetch("custommaploader/maps")).json();
+	CML.selectedMap = (await modConfig.get("custommaploader")).map;
+	if (!CML.maps.hasOwnProperty(CML.selectedMap)) {
+		CML.selectedMap = "default";
+	}
+	const options = Object.keys(CML.maps).map((name) => {
+		if (name == CML.selectedMap) return `<option value="${name}" selected>${name}</option>`;
 		return `<option value="${name}">${name}</option>`;
 	});
 
@@ -963,13 +1311,13 @@ exports.onMenuLoaded = async function () {
 	}
 
 	function selectionChanged(newSelection) {
-		globalThis.CML_mapWarn = undefined;
-		globalThis.CML_selectedMap = newSelection;
-		const map = globalThis.CML_maps[newSelection];
+		CML.internals.mapWarn = undefined;
+		CML.selectedMap = newSelection;
+		const map = CML.maps[newSelection];
 		// Warnings are not for errors, those can be handled after.
 		if (map && map.valid) {
 			if (map.scale > 3) {
-				return (globalThis.CML_mapWarn = `This map is ${map.scale}x scale (${map.width}x${map.width}). This map may not load on your machine or may cause other unexpected issues since it is bigger than 3x.`);
+				return (CML.internals.mapWarn = `This map is ${map.scale}x scale (${map.width}x${map.width}). This map may not load on your machine or may cause other unexpected issues since it is bigger than 3x.`);
 			}
 		}
 		modConfig.set("custommaploader", { map: newSelection });
@@ -986,7 +1334,8 @@ exports.onMenuLoaded = async function () {
 	<select id="CML_mapSelector" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" style="max-width: 7rem; width: 7rem">
 	${options}
 	</select>
-</form>`;
+</form>
+<p style="font-size:12px">[CML v${exports.modinfo.version}]</p>`;
 	let interval = setInterval(() => {
 		const ui = document.querySelector(
 			"#ui > div.fixed.inset-0.flex.items-center.justify-center.pointer-events-none.mt-40 > div > div.bg-opacity-25.text-white.flex.flex-col.items-center.justify-center.relative"
@@ -994,7 +1343,7 @@ exports.onMenuLoaded = async function () {
 		if (!ui) return;
 		clearInterval(interval);
 		ui.appendChild(selector);
-		selectionChanged(globalThis.CML_selectedMap);
+		selectionChanged(CML.selectedMap);
 		document.getElementById("CML_mapSelector").addEventListener("change", function () {
 			selectionChanged(this.value);
 		});
