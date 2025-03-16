@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "3.0.3",
+	version: "3.0.4",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -35,7 +35,7 @@ const templateColors = {
 		Fluxite: "175, 0, 224",
 		RedsandSoil: "255, 85, 0",
 		Crackstone: "205, 139, 139",
-		DarkFog: "51, 51, 51",
+		AlternateFog: "51, 51, 51",
 		RevealedFogWater: "0, 0, 255",
 		Scoria: "38, 0, 0",
 		GoldSoil: "127, 127, 0",
@@ -724,8 +724,8 @@ if (globalThis.CML) {
 		Moss: "0, 224, 0",
 		Divider: "0, 102, 0",
 		SporeSoil: "255, 255, 0",
-		FreezingIce: "204, 255, 255",
-		CaveFreezingIce: "153, 255, 255",
+		JetpackFrostBed: "204, 255, 255",
+		CaveFrostBed: "153, 255, 255",
 		Fog: "153, 51, 0",
 		JetpackFog: "255, 0, 153",
 		JetpackFogWater: "102, 102, 255",
@@ -735,7 +735,7 @@ if (globalThis.CML) {
 		Fluxite: "175, 0, 224",
 		RedsandSoil: "255, 85, 0",
 		Crackstone: "205, 139, 139",
-		DarkFog: "51, 51, 51", // Only used in the artifact rooms from what I can tell, is just a darker version of BedrockFog
+		AlternateFog: "51, 51, 51", // Only used in the artifact rooms from what I can tell, is just a darker version of BedrockFog
 		SandSoil: "0, 0, 255", // Blame Lantto... apparently this is just SandSoil without dirt background
 	};
 
