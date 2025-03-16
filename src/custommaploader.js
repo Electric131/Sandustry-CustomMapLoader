@@ -1,9 +1,12 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "3.0.1",
+	version: "3.0.2",
 	dependencies: [],
 	modauthor: "Electric131",
 };
+
+// Remove config from the config UI
+exports.config = [];
 
 const mapsFolder = "./mods/maps";
 
@@ -1153,7 +1156,14 @@ exports.patches = [
 		// World creation - pixel loop starting
 		type: "replace",
 		from: "for(var i=performance.now()",
-		to: `CML.internals.particles=n;CML.internals.solids=t;CML.internals.createParticle=Fh;CML.internals.addExtraColors();for(var i=performance.now()`,
+		to: `CML.internals.addExtraColors();for(var i=performance.now()`,
+		expectedMatches: 1,
+	},
+	{
+		// Function where world creation starts
+		type: "replace",
+		from: "const KT=function(r,i)",
+		to: `CML.internals.particles=n;CML.internals.solids=t;CML.internals.createParticle=Fh;const KT=function(r,i)`,
 		expectedMatches: 1,
 	},
 	{
