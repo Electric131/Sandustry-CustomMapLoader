@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "3.0.2",
+	version: "3.0.3",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -357,7 +357,7 @@ async function loadMap(mapName) {
 	Object.assign(tempData, {
 		name: mapName,
 		folderRelative: mapFolder,
-		folder: globalThis.resolvePathRelativeToExecutable(mapFolder),
+		folder: globalThis.resolvePathRelativeToModloader(mapFolder),
 	});
 	if (mapName != "default") {
 		let fileError;
@@ -511,7 +511,7 @@ exports.api = {
 				fs.mkdirSync(mapsFolder, { recursive: true });
 			}
 			const maps = (
-				await fs.readdirSync(globalThis.resolvePathRelativeToExecutable(mapsFolder), {
+				await fs.readdirSync(globalThis.resolvePathRelativeToModloader(mapsFolder), {
 					withFileTypes: true,
 				})
 			)
@@ -1108,7 +1108,6 @@ exports.patches = [
 		type: "replace",
 		from: "(()=>{var e,t,n={8916:",
 		to: `(${init.toString().replace("function ()", "() =>")})();(()=>{var e,t,n={8916:`,
-		expectedMatches: 1,
 	},
 	{
 		// Show x, y of invalid colors during world creation - helps debug map creation
@@ -1122,84 +1121,72 @@ exports.patches = [
 		type: "replace",
 		from: 'b_("db_load=".concat(r))',
 		to: 'CML.internals.newGame(()=>{b_("db_load=".concat(r))}, r)',
-		expectedMatches: 1,
 	},
 	{
 		// Main menu 'New' button intercept
 		type: "replace",
 		from: 'b_("new_game=true")',
 		to: 'CML.internals.newGame(()=>{b_("new_game=true")})',
-		expectedMatches: 1,
 	},
 	{
 		// Main menu 'Load' button intercept
 		type: "replace",
 		from: 'e&&b_("db_load="+e.id)',
 		to: 'CML.internals.newGame(() => {e&&b_("db_load="+e.id)}, e.id)',
-		expectedMatches: 1,
 	},
 	{
 		// Data tables created (too early for mapData to be loaded)
 		type: "replace",
 		from: "};l.Demolisher,",
 		to: `};CML.internals.positionClear=tf;CML.internals.colorTable=Fd;CML.internals.setElement=Od;`,
-		expectedMatches: 1,
 	},
 	{
 		// Thread helping functions such as 'getThreadIndexFromCellX' are defined
 		type: "replace",
 		from: "const K=q;",
 		to: `CML.internals.threadHelpers=q;const K=q;`,
-		expectedMatches: 1,
 	},
 	{
 		// World creation - pixel loop starting
 		type: "replace",
 		from: "for(var i=performance.now()",
 		to: `CML.internals.addExtraColors();for(var i=performance.now()`,
-		expectedMatches: 1,
 	},
 	{
 		// Function where world creation starts
 		type: "replace",
 		from: "const KT=function(r,i)",
 		to: `CML.internals.particles=n;CML.internals.solids=t;CML.internals.createParticle=Fh;const KT=function(r,i)`,
-		expectedMatches: 1,
 	},
 	{
 		// World creation - color conversion
 		type: "replace",
 		from: "switch(b)",
 		to: "b=CML.internals.convertColor(b);switch(b)",
-		expectedMatches: 1,
 	},
 	{
 		// World creation - wall data
 		type: "replace",
 		from: 'f="".concat(c,", ").concat(h,", ").concat(d);',
 		to: 'f="".concat(c,", ").concat(h,", ").concat(d);f=CML.internals.convertColor(f);',
-		expectedMatches: 1,
 	},
 	{
 		// World creation - player spawn
 		type: "replace",
 		from: "{x:363*e.cellSize,y:200*e.cellSize}",
 		to: `CML.internals.playerSpawnPos(e)`,
-		expectedMatches: 1,
 	},
 	{
 		// Fixture parsing - spawns title card and starting collector
 		type: "replace",
 		from: "t.store.world.fixtures.forEach",
 		to: "CML.internals.spawnBlockData = {spawnBlock:xd, blocks:d};t.store.world.fixtures.forEach",
-		expectedMatches: 1,
 	},
 	{
 		// Unstuck button
 		type: "replace",
 		from: "t.state.store.player.x=161*e.cellSize,t.state.store.player.y=616*e.cellSize",
 		to: `CML.internals.playerUnstuck(e)`,
-		expectedMatches: 1,
 	},
 	{
 		// Intro timing sequence
@@ -1207,14 +1194,12 @@ exports.patches = [
 		pattern:
 			'case x\\.Intro:.*?if\\((.+?),!e\\.store\\.scene\\.triggers\\[0\\].+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+(e\\.store\\.scene\\.active=x\\.Game.+?)}break;case',
 		replace: "case x.Intro:$1;CML.internals.playerLanding($2, $3, function(){$4});break;case",
-		expectedMatches: 1,
 	},
 	{
 		// Player fog change
 		type: "replace",
 		from: "(l=i.y)<=3400?700:l>=4200?200:700-(l-3400)/800*500",
 		to: "CML.internals.playerFog(l=i.y)",
-		expectedMatches: 1,
 	},
 	{
 		// Parallax scale adjustment
@@ -1235,42 +1220,36 @@ exports.patches = [
 		type: "replace",
 		from: "n.y<600",
 		to: "n.y<CML.internals.tryGetData().meta.yLimit.soft",
-		expectedMatches: 1,
 	},
 	{
 		// Hard y limit
 		type: "replace",
 		from: "s<550?(s=550",
 		to: "s<CML.internals.tryGetData().meta.yLimit.hard?(s=CML.internals.tryGetData().meta.yLimit.hard",
-		expectedMatches: 1,
 	},
 	{
 		// Define the script update timer name with id 100 to hopefully prevent conflicts
 		type: "replace",
 		from: 'e[e.PingPumpChunksFIX=8]="PingPumpChunksFIX"',
 		to: 'e[e.PingPumpChunksFIX=8]="PingPumpChunksFIX",e[e.CML_Timer=100]="CML_Timer"',
-		expectedMatches: 1,
 	},
 	{
 		// Setup a callback for the script timer to run every 50ms
 		type: "replace",
 		from: "up[_.PingPumpChunksFIX]={",
 		to: "up[_.CML_Timer]={interval:50,multithreading:!1,callback: async function() {await globalThis.CML.internals.timerCallback()}},up[_.PingPumpChunksFIX]={",
-		expectedMatches: 1,
 	},
 	{
 		// Return early from keydown event if preventInput is true
 		type: "replace",
 		from: "var s=sp(n);",
 		to: "var s=sp(n);if (globalThis.CML.internals.preventInput) return;",
-		expectedMatches: 1,
 	},
 	{
 		// Call the update camera function when the camera is ready to be moved
 		type: "replace",
 		from: "var t=hf(e);",
 		to: "if (CML.internals.updateCamera(hf)) return;var t=hf(e);",
-		expectedMatches: 1,
 	},
 	{
 		// Call the player moved scriptAPI callback when the player moves
@@ -1278,7 +1257,6 @@ exports.patches = [
 		type: "replace",
 		from: "r.y=s,t.shared.playerPos[0]",
 		to: "r.y=s;if(CML.internals.scriptExportsHas('onPlayerMoved')&&(CML.scriptAPI.helpers.round(t.shared.playerPos[0],1000)!=CML.scriptAPI.helpers.round(r.x,1000)||CML.scriptAPI.helpers.round(t.shared.playerPos[1],1000)!=CML.scriptAPI.helpers.round(r.y,1000))){CML.mapData.script.exports.onPlayerMoved({x:CML.scriptAPI.helpers.round(t.shared.playerPos[0],1000),y:CML.scriptAPI.helpers.round(t.shared.playerPos[1],1000)},{x:CML.scriptAPI.helpers.round(r.x,1000),y:CML.scriptAPI.helpers.round(r.y,1000)})};t.shared.playerPos[0]",
-		expectedMatches: 1,
 	},
 ];
 
