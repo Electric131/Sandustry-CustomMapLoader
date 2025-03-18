@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "3.0.4",
+	version: "3.0.5",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -1156,7 +1156,7 @@ exports.patches = [
 		// Function where world creation starts
 		type: "replace",
 		from: "const KT=function(r,i)",
-		to: `CML.internals.particles=n;CML.internals.solids=t;CML.internals.createParticle=Fh;const KT=function(r,i)`,
+		to: `CML.internals.particles=n;CML.internals.solids=t;CML.internals.createParticle=Fh;CML.internals.spawnBlockData={spawnBlock:xd,blocks:d};const KT=function(r,i)`,
 	},
 	{
 		// World creation - color conversion
@@ -1175,12 +1175,6 @@ exports.patches = [
 		type: "replace",
 		from: "{x:363*e.cellSize,y:200*e.cellSize}",
 		to: `CML.internals.playerSpawnPos(e)`,
-	},
-	{
-		// Fixture parsing - spawns title card and starting collector
-		type: "replace",
-		from: "t.store.world.fixtures.forEach",
-		to: "CML.internals.spawnBlockData = {spawnBlock:xd, blocks:d};t.store.world.fixtures.forEach",
 	},
 	{
 		// Unstuck button
