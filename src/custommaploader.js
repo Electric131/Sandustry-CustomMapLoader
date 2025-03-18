@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "3.0.5",
+	version: "3.1.0",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -54,6 +54,7 @@ const mapDataTemplate = {
 	images: {},
 	hash: null,
 	meta: {
+		maploaderVersion: exports.modinfo.version,
 		spawn: {
 			x: 363,
 			y: 200,
@@ -450,6 +451,20 @@ async function loadMap(mapName) {
 		tempData.folder = null;
 		tempData.folderRelative = null;
 		tempData.hash = "default";
+	}
+	const targetVer = tempData.meta.maploaderVersion.split(".");
+	const currentVer = exports.modinfo.version.split(".");
+	// Check if current major version is not equal to target major version
+	if (currentVer[0] != targetVer[0]) {
+		return new loadingError(`Map is made for map loader v${tempData.meta.maploaderVersion}, but v${exports.modinfo.version} is installed`);
+	}
+	// Check if current minor version is less than target minor version
+	if (currentVer[1] < targetVer[1]) {
+		return new loadingError(`Map is made for map loader v${tempData.meta.maploaderVersion}, but v${exports.modinfo.version} is installed`);
+	}
+	// Check if current patch version is less than target patch version, UNLESS major version is greater
+	if (currentVer[1] <= targetVer[1] && currentVer[2] < targetVer[2]) {
+		return new loadingError(`Map is made for map loader v${tempData.meta.maploaderVersion}, but v${exports.modinfo.version} is installed`);
 	}
 	if (tempData.images["map_blueprint_playtest.png"]) {
 		tempData.width = tempData.images["map_blueprint_playtest.png"].width;
