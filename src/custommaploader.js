@@ -1,6 +1,6 @@
 exports.modinfo = {
 	name: "custommaploader",
-	version: "3.1.0",
+	version: "3.1.1",
 	dependencies: [],
 	modauthor: "Electric131",
 };
@@ -650,7 +650,7 @@ if (globalThis.CML) {
 				border-radius: 10px; box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
 				text-align: center;">
 				<p style="color: red; font-size: 25pt">Map Warning</h2>
-				<p style="color: white; max-width: 500px">${globalThis.CML_mapWarn}</p>
+				<p style="color: white; max-width: 500px">${CML.internals.mapWarn}</p>
 				<p style="color: white; margin-top: 10px">Are you sure you want to proceed?</p>
 				<div style="margin-top: 15px; display: flex; justify-content: center; gap: 10px;">
 					<button id="CML_cancel" style="
@@ -680,12 +680,12 @@ if (globalThis.CML) {
 
 	CML.internals.newGame = function (originalFunction, saveId) {
 		// If a save is given check the map hash
-		if (saveId && globalThis.CML_maps) {
+		if (saveId && CML.maps) {
 			return new Promise(async (res, rej) => {
 				try {
 					const worldHash = JSON.parse((await (await fetch("custommaploader/loadsave/" + saveId)).text()).split("\n")[1]).world.mapHash;
 					const selected = CML.maps[CML.selectedMap];
-					if (worldHash && selected && selected.hash != worldHash) {
+					if (worldHash && selected && selected.hash !== worldHash) {
 						CML.internals.mapWarn = "The save you are loading was created with a different map than the one that is currently active! This could cause potential errors!";
 					}
 					CML.internals.menuWarn(originalFunction);
