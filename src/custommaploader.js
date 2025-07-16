@@ -8,7 +8,7 @@ exports.modinfo = {
 // Remove config from the config UI
 exports.config = [];
 
-const mapsFolder = "./mods/maps";
+const mapsFolder = "mods/maps";
 
 const templateColors = {
 	elements: {
@@ -343,12 +343,8 @@ async function loadMap(mapName) {
 		}
 		mapName = config.map;
 	}
-	if (!fs.existsSync(mapsFolder)) {
-		log(`[custommaploader] Creating directory: ${mapsFolder}`);
-		fs.mkdirSync(mapsFolder, { recursive: true });
-	}
 	log(`[custommaploader] Loading map '${mapName}'`);
-	let mapFolder = `${mapsFolder}/${mapName}`;
+	let mapFolder = path.resolve(globalThis.resolvePathRelativeToModloader(mapsFolder), mapName);
 	logDebug(`[custommaploader] Current map folder is ${mapFolder}`);
 	if (!fs.existsSync(mapFolder) && mapName != "default") {
 		return loadingError(`Custom map folder '${mapFolder}' does not exist. Please make sure the map name is correct and the folder exists in ${mapsFolder}.`);
@@ -358,7 +354,7 @@ async function loadMap(mapName) {
 	Object.assign(tempData, {
 		name: mapName,
 		folderRelative: mapFolder,
-		folder: globalThis.resolvePathRelativeToModloader(mapFolder),
+		folder: mapFolder,
 	});
 	if (mapName != "default") {
 		let fileError;
@@ -520,13 +516,14 @@ exports.api = {
 	"custommaploader/maps": {
 		requiresBaseResponse: false,
 		getFinalResponse: async () => {
-			logDebug(`[custommaploader] Map list requested from '${mapsFolder}'`);
-			if (!fs.existsSync(mapsFolder)) {
-				log(`[custommaploader] Creating directory: ${mapsFolder}`);
-				fs.mkdirSync(mapsFolder, { recursive: true });
+			const resolvedMapsFolder = globalThis.resolvePathRelativeToModloader(mapsFolder);
+			logDebug(`[custommaploader] Map list requested from '${resolvedMapsFolder}'`);
+			if (!fs.existsSync(resolvedMapsFolder)) {
+				log(`[custommaploader] Creating directory: ${resolvedMapsFolder}`);
+				fs.mkdirSync(resolvedMapsFolder, { recursive: true });
 			}
 			const maps = (
-				await fs.readdirSync(globalThis.resolvePathRelativeToModloader(mapsFolder), {
+				await fs.readdirSync(resolvedMapsFolder, {
 					withFileTypes: true,
 				})
 			)
