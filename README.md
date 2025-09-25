@@ -1,28 +1,20 @@
 # Sandustry Custom Map Loader (CML)
 
-Sandustry Custom Map Loader (CML) is a mod that allows the easy creation and selection of custom maps for [Sandustry](https://store.steampowered.com/app/2764460/Sandustry/) using the [Sandustry Modloader](https://git.rendezvous.dev/shadowcomputer/sandustry-modloader).
+Sandustry Custom Map Loader (CML) is a mod that allows the easy creation and selection of custom maps for [Sandustry](https://store.steampowered.com/app/2764460/Sandustry/) using [Fluxloader](https://git.rendezvous.dev/sandustry/modloader).
 
 ## Installation
 
-**_Note: The Sandustry Modloader must be installed beforehand_**
+**_Note: Fluxloader must be installed beforehand_**
 
-https://github.com/user-attachments/assets/5f45bde8-fa8d-4f4b-94c8-b9ad80b6cb7a
+The installation process has been simplified since v2 of the modloader (now renamed to Fluxloader), and all you have to do is search for the map loader in the Fluxloader UI. You can do the same process for the maps you want to play with.
 
-To install the custom map loader, locate the `mods` folder created by the Sandustry Modloader. Once you find this folder, download [custommaploader.js](https://github.com/Electric131/Sandustry-CustomMapLoader/releases/latest/download/custommaploader.js) and put it into that folder.
+Once you install the mod for the map you want, the main menu "Select Map" drop down should allow you to select the map upon restarting the game.
 
-After running the game with the mod for the first time, you should see a dropdown (labeled "Select Map") in the main menu as well as a `maps` folder located inside the `mods` folder.
-
-Now you'll want to find a zipped map file (or try [this example map](https://github.com/Electric131/Sandustry-CustomMapLoader/releases/latest/download/examplemap.zip)) and unzip/extract the contents into their own folder.
-
-Place the unzipped/extracted folder into the `maps` folder from earlier (Do not place the _contents_ of the folder into the maps folder). _Note: The name of this folder will be the name of the map as seen in game_
-
-Check the example below to see the proper installation of an example map named `examplemap`:
-
-!['examplemap' folder located inside the maps folder](/resources/maps_folder.png)
-
-Once the map is placed inside the `maps` folder, the main menu "Select Map" drop down should allow you to select the map upon restarting the game.
+**If you have an issue and are unable to choose the map in game (e.g. it crashes on startup), you can change the map through the mod config in the Fluxloader app**
 
 If you installed the map correctly, you should now be able to load a save with the custom map.
+
+The map loader will give you a warning if you try to load a previous save with a different map (or version of the same map) than it was last played on.
 
 ## Making a Map
 
