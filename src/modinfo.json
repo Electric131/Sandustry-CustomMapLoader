@@ -1,0 +1,25 @@
+{
+	"name": "Custom Map Loader",
+	"version": "4.0.3",
+	"modID": "custommaploader",
+	"author": "Electric131",
+	"shortDescription": "A mod to load custom maps",
+	"fluxloaderVersion": "^2.0.0",
+	"dependencies": { "corelib": "^1.0.0" },
+	"tags": ["loader"],
+	"electronEntrypoint": "entry.electron.js",
+	"gameEntrypoint": "entry.game.js",
+	"scriptPath": "mod.script.js",
+	"configSchema": {
+		"map": {
+			"type": "dropdown",
+			"default": "default",
+			"options": ["default"]
+		},
+		"mapNameFormat": {
+			"type": "dropdown",
+			"default": "Name (v1.0.0) [1x]",
+			"options": ["Name (v1.0.0) [1x]", "Name (v1.0.0) [1280x1280]", "Name (v1.0.0)"]
+		}
+	}
+}
