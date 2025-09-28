@@ -9,6 +9,7 @@
 	"tags": ["loader"],
 	"electronEntrypoint": "entry.electron.js",
 	"gameEntrypoint": "entry.game.js",
+	"workerEntrypoint": "entry.worker.js",
 	"scriptPath": "mod.script.js",
 	"configSchema": {
 		"map": {

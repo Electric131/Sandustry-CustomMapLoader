@@ -95,14 +95,18 @@ CML.internals.loadSave = function (originalFunction, saveId) {
 CML.internals.initColors = function () {
 	let data = CML.internals.tryGetData();
 	if (!data) throw new Error("[Custom Map Loader] Map data was not ready during color init");
-	CML.internals.loadedColors = {};
-	const colors = data.meta.colors.elements;
+	CML.internals.loadedColors = {
+		elements: {},
+		particles: data.meta.colors.particles || {},
+	};
+	// Load colors of elements (e.g. FogWater, Fog, SandSoil, etc.)
+	let colors = data.meta.colors.elements;
 	// Swap keys and values of colors
-	for (const tile of Object.keys(colors)) {
-		if (Object.keys(CML.internals.loadedColors).includes(colors[tile])) {
-			throw new Error(`[Custom Map Loader] Duplicate color found during world creation: ${colors[tile]}`);
+	for (const color of Object.keys(colors)) {
+		if (Object.keys(CML.internals.loadedColors.elements).includes(colors[color])) {
+			throw new Error(`[Custom Map Loader] Duplicate element color found during world creation: ${colors[color]}`);
 		}
-		if (typeof colors[tile] != "object") CML.internals.loadedColors[colors[tile]] = tile;
+		if (typeof colors[color] != "object") CML.internals.loadedColors.elements[colors[color]] = color;
 	}
 };
 
@@ -118,11 +122,14 @@ const basicColorMap = {
 };
 
 // Converts basicColorMap - which is only basic colors in the switch statement
-CML.internals.convertColor = function (color) {
+// isWall is just a weird way to detect if we should hide this color from the background
+CML.internals.convertColor = function (color, isWall) {
 	if (!CML.internals.loadedColors) CML.internals.initColors();
-	if (!Object.keys(CML.internals.loadedColors).includes(color)) return color;
-	if (!Object.keys(basicColorMap).includes(CML.internals.loadedColors[color])) return color;
-	return basicColorMap[CML.internals.loadedColors[color]];
+	// If the color is a particle, and we're rendering the wall, treat this as empty space
+	if (Object.keys(CML.internals.loadedColors.particles).includes(color) && isWall) return "255, 255, 255";
+	if (!Object.keys(CML.internals.loadedColors.elements).includes(color)) return color;
+	if (!Object.keys(basicColorMap).includes(CML.internals.loadedColors.elements[color])) return color;
+	return basicColorMap[CML.internals.loadedColors.elements[color]];
 };
 
 const advancedColorMap = {
@@ -153,8 +160,8 @@ CML.internals.addExtraColors = function () {
 	const original = JSON.parse(JSON.stringify(CML.internals.colorTable));
 	let data = CML.internals.tryGetData();
 	if (!CML.internals.loadedColors) CML.internals.initColors();
-	for (const tile of Object.values(CML.internals.loadedColors)) {
-		if (!advancedColorMap[tile]) continue;
+	for (const tile of Object.values(CML.internals.loadedColors.elements)) {
+		if (!advancedColorMap.hasOwnProperty(tile)) continue;
 		CML.internals.colorTable[data.meta.colors.elements[tile]] = original[advancedColorMap[tile]];
 	}
 
@@ -175,6 +182,12 @@ CML.internals.addExtraColors = function () {
 			CML.internals.colorTable[color] = elementData;
 		}
 	}
+};
+
+// Check if the color given is a particle, and if so, spawn the particle instead
+CML.internals.handleParticle = function (color) {
+	if (!CML.internals.loadedColors) CML.internals.initColors();
+	return CML.internals.loadedColors.particles[color];
 };
 
 CML.internals.playerSpawnPos = function (constants) {
@@ -279,6 +292,7 @@ fluxloaderAPI.events.on("fl:scene-loaded", async (scene) => {
 	if (scene !== "mainmenu") {
 		fluxloaderAPI.gameInstance.state.store.world.mapTag = `${CML.mapData.id}-v${CML.mapData.version}`;
 		fluxloaderAPI.events.trigger("CML:mapLoaded", CML.mapData.id);
+		fluxloaderAPI.sendWorkerMessage("CML:mapDataReady", CML.mapData);
 		return;
 	}
 	// Exposes maps in case other mods want to use them

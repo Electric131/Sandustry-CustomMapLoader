@@ -304,13 +304,6 @@ const customOnlyPatches = [
 		to: `};CML.internals.colorTable=Fd;l.Demolisher,`,
 	},
 	{
-		// Thread helping functions such as 'getThreadIndexFromCellX' are defined
-		type: "replace",
-		from: "const K=q;",
-		to: `CML.internals.threadHelpers=q;~`,
-		token: "~",
-	},
-	{
 		// World creation - pixel loop starting
 		type: "replace",
 		from: "for(var i=performance.now()",
@@ -321,19 +314,19 @@ const customOnlyPatches = [
 		// World creation - color conversion
 		type: "replace",
 		from: "switch(b)",
-		to: "b=CML.internals.convertColor(b);switch(b)",
+		to: "b=CML.internals.convertColor(b,false);switch(b)",
 	},
 	{
 		// World creation - color lookup
 		type: "replace",
 		from: `var w=Fd["".concat(y,", ").concat(v,", ").concat(x)];`,
-		to: `var w=Fd[b];`,
+		to: `var w=Fd[b];let res=CML.internals.handleParticle(b);if(res){let pixel=Fh(n[res],m,p);pixel.bg=5;h[p][m]=pixel;break;}`,
 	},
 	{
 		// World creation - wall data
 		type: "replace",
 		from: 'f="".concat(c,", ").concat(h,", ").concat(d);',
-		to: "~f=CML.internals.convertColor(f);",
+		to: "~f=CML.internals.convertColor(f,true);",
 		token: "~",
 	},
 	{
