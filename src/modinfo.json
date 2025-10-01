@@ -4,7 +4,7 @@
 	"modID": "custommaploader",
 	"author": "Electric131",
 	"shortDescription": "A mod to load custom maps",
-	"fluxloaderVersion": "^2.0.0",
+	"fluxloaderVersion": "^2.2.0",
 	"dependencies": { "corelib": "^1.0.0" },
 	"tags": ["loader"],
 	"electronEntrypoint": "entry.electron.js",
