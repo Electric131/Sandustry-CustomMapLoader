@@ -69,7 +69,9 @@ CML.internals.loadSave = function (originalFunction, saveId) {
 	}
 	// Generic errors for ANY form of loading a save (whether new or old)
 	if (selected.width / 1280 > 3) {
-		CML.internals.mapWarn = `This map is ${selected.width / 1280}x scale (${selected.width}x${selected.width}). This map may not load on your machine or may cause other unexpected issues since it is bigger than 3x.`;
+		CML.internals.mapWarn = `This map is ${selected.width / 1280}x scale (${selected.width}x${
+			selected.width
+		}). This map may not load on your machine or may cause other unexpected issues since it is bigger than 3x.`;
 	}
 	// If a save is given, check if the map and version match
 	if (saveId) {
@@ -156,13 +158,13 @@ const advancedColorMap = {
 // Converts advancedColorMap - which is the extra list of colors stored as `Fd` currently
 // Then also adds any custom colors defined
 CML.internals.addExtraColors = function () {
-	if (!CML.internals.colorTable) throw new Error("[Custom Map Loader] Color table was not ready at world creation");
-	const original = JSON.parse(JSON.stringify(CML.internals.colorTable));
+	if (!corelib.exposed.Fd) throw new Error("[Custom Map Loader] Color table was not ready at world creation");
+	const original = JSON.parse(JSON.stringify(corelib.exposed.Fd));
 	let data = CML.internals.tryGetData();
 	if (!CML.internals.loadedColors) CML.internals.initColors();
 	for (const tile of Object.values(CML.internals.loadedColors.elements)) {
 		if (!advancedColorMap.hasOwnProperty(tile)) continue;
-		CML.internals.colorTable[data.meta.colors.elements[tile]] = original[advancedColorMap[tile]];
+		corelib.exposed.Fd[data.meta.colors.elements[tile]] = original[advancedColorMap[tile]];
 	}
 
 	for (const [color, elementData] of Object.entries(data.meta.colors.elements)) {
@@ -179,7 +181,7 @@ CML.internals.addExtraColors = function () {
 				}
 				elementData.fg = corelib.simulation.internal.solids[elementData.fg];
 			}
-			CML.internals.colorTable[color] = elementData;
+			corelib.exposed.Fd[color] = elementData;
 		}
 	}
 };
@@ -282,22 +284,7 @@ CML.internals.appendDisplayTag = function (version) {
 	return `${formattedName}\n${version}`;
 };
 
-// Allows requesting data, but resorts to defaults if not ready
-CML.internals.tryGetData = function () {
-	if (!CML.mapData) return JSON.parse(JSON.stringify(mapDataTemplate));
-	return CML.mapData;
-};
-
-fluxloaderAPI.events.on("fl:scene-loaded", async (scene) => {
-	if (scene !== "mainmenu") {
-		fluxloaderAPI.gameInstance.state.store.world.mapTag = `${CML.mapData.id}-v${CML.mapData.version}`;
-		fluxloaderAPI.events.trigger("CML:mapLoaded", CML.mapData.id);
-		fluxloaderAPI.sendWorkerMessage("CML:mapDataReady", CML.mapData);
-		return;
-	}
-	// Exposes maps in case other mods want to use them
-	CML.maps = await fluxloaderAPI.invokeElectronIPC("CML:getMaps");
-	config = await fluxloaderAPI.modConfig.get("custommaploader");
+CML.internals.createMenuUI = function () {
 	CML.selectedMap = config.map;
 	if (!CML.maps.hasOwnProperty(CML.selectedMap)) {
 		CML.selectedMap = "default";
@@ -317,7 +304,14 @@ fluxloaderAPI.events.on("fl:scene-loaded", async (scene) => {
 					formattedName = `${map.name} (v${map.version})`;
 					break;
 			}
-			return `<option value="${map.id}"${map.id == CML.selectedMap ? " selected" : ""}>${formattedName}</option>`;
+			return React.createElement(
+				"option",
+				{
+					selected: map.id == CML.selectedMap,
+					value: map.id,
+				},
+				formattedName
+			);
 		});
 
 	const loadingErrors = document.createElement("div");
@@ -348,30 +342,82 @@ fluxloaderAPI.events.on("fl:scene-loaded", async (scene) => {
 		fluxloaderAPI.modConfig.set("custommaploader", config);
 	}
 
-	const selector = document.createElement("div");
-	selector.style.position = "absolute";
-	selector.style.pointerEvents = "auto";
-	selector.style.transform = "translate(-15rem, -4rem)";
-	selector.style.color = "rgb(0,0,0)";
-	selector.innerHTML = `
-<form class="max-w-sm mx-auto">
-	<label for="CML_mapSelector" class="block mb-2 text-base font-medium text-gray-900 dark:text-white">Select Map</label>
-	<select id="CML_mapSelector" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" style="max-width: 10rem; width: 10rem">
-	${options}
-	</select>
-</form>
-<p style="font-size:12px">[CML v4.0.0]</p>`;
-	let interval = setInterval(async () => {
-		const ui = document.querySelector("#ui > div.fixed.inset-0.flex.items-center.justify-center.pointer-events-none.mt-40 > div > div.bg-opacity-25.text-white.flex.flex-col.items-center.justify-center.relative");
-		if (!ui) return;
-		clearInterval(interval);
-		ui.appendChild(selector);
-		// Uses selected option on UI, which will automatically ignore if the `selectedMap` is invalid
-		await selectionChanged(document.getElementById("CML_mapSelector").value);
-		document.getElementById("CML_mapSelector").addEventListener("change", async function () {
-			await selectionChanged(this.value);
-		});
-	}, 100);
+	delete CML.internals.mapWarn;
+
+	return React.createElement(
+		"div",
+		{
+			style: {
+				position: "absolute",
+				pointerEvents: "auto",
+				transform: "translate(-15rem, -4rem)",
+				color: "rgb(0,0,0)",
+			},
+		},
+		[
+			React.createElement("form", { className: "max-w-sm mx-auto" }, [
+				React.createElement("label", { htmlFor: "CML_mapSelector", className: "block mb-2 text-base font-medium text-gray-900 dark:text-white" }, "Select Map"),
+				React.createElement(
+					"select",
+					{
+						id: "CML_mapSelector",
+						onChange: async (e) => {
+							await selectionChanged(e.target.value);
+						},
+						className:
+							"bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500",
+						style: {
+							"max-width": "10rem",
+							width: "10rem",
+						},
+					},
+					options
+				),
+			]),
+			React.createElement("p", { style: { fontSize: "12px" } }, "[CML v4.1.1]"),
+		]
+	);
+
+	// 	const selector = document.createElement("div");
+	// 	selector.style.position = "absolute";
+	// 	selector.style.pointerEvents = "auto";
+	// 	selector.style.transform = "translate(-15rem, -4rem)";
+	// 	selector.style.color = "rgb(0,0,0)";
+	// 	selector.innerHTML = `
+	// <form class="max-w-sm mx-auto">
+	// 	<label for="CML_mapSelector" class="block mb-2 text-base font-medium text-gray-900 dark:text-white">Select Map</label>
+	// 	<select id="CML_mapSelector" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" style="max-width: 10rem; width: 10rem">
+	// 	${options}
+	// 	</select>
+	// </form>
+	// <p style="font-size:12px">[CML v4.0.0]</p>`;
+	// 	const ui = document.querySelector(
+	// 		"#ui > div.fixed.inset-0.flex.items-center.justify-center.pointer-events-none.mt-40 > div > div.bg-opacity-25.text-white.flex.flex-col.items-center.justify-center.relative"
+	// 	);
+	// 	ui.appendChild(selector);
+	// 	// Uses selected option on UI, which will automatically ignore if the `selectedMap` is invalid
+	// 	await selectionChanged(document.getElementById("CML_mapSelector").value);
+	// 	document.getElementById("CML_mapSelector").addEventListener("change", async function () {
+	// 		await selectionChanged(this.value);
+	// 	});
+};
+
+// Allows requesting data, but resorts to defaults if not ready
+CML.internals.tryGetData = function () {
+	if (!CML.mapData) return JSON.parse(JSON.stringify(mapDataTemplate));
+	return CML.mapData;
+};
+
+fluxloaderAPI.events.on("fl:scene-loaded", async (scene) => {
+	if (scene !== "mainmenu") {
+		fluxloaderAPI.gameInstance.state.store.world.mapTag = `${CML.mapData.id}-v${CML.mapData.version}`;
+		fluxloaderAPI.events.trigger("CML:mapLoaded", CML.mapData.id);
+		fluxloaderAPI.sendWorkerMessage("CML:mapDataReady", CML.mapData);
+		return;
+	}
+	// Exposes maps in case other mods want to use them
+	CML.maps = await fluxloaderAPI.invokeElectronIPC("CML:getMaps");
+	config = await fluxloaderAPI.modConfig.get("custommaploader");
 });
 
 // onMapLoaded(mapID)

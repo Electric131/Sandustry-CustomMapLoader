@@ -94,7 +94,14 @@ function loadMap(mapData) {
 	};
 
 	try {
-		const mapFiles = ["map_blueprint_playtest.png", "map_blueprint_playtest_authorization.png", "map_blueprint_playtest_lights.png", "map_blueprint_playtest_sensors.png", "fog_playtest.png", "meta.json"];
+		const mapFiles = [
+			"map_blueprint_playtest.png",
+			"map_blueprint_playtest_authorization.png",
+			"map_blueprint_playtest_lights.png",
+			"map_blueprint_playtest_sensors.png",
+			"fog_playtest.png",
+			"meta.json",
+		];
 		for (let file of mapFiles) {
 			let exists = fs.existsSync(`${mapData.path}/${file}`);
 			// Make sure file exists, unless it's the meta.json since that's optional
@@ -298,12 +305,6 @@ globalThis.CML = {
 // Patches that will only be added if a map other than the default map is being loaded
 const customOnlyPatches = [
 	{
-		// Data tables created (too early for mapData to be loaded)
-		type: "replace",
-		from: "};l.Demolisher,",
-		to: `};CML.internals.colorTable=Fd;l.Demolisher,`,
-	},
-	{
 		// World creation - pixel loop starting
 		type: "replace",
 		from: "for(var i=performance.now()",
@@ -344,7 +345,8 @@ const customOnlyPatches = [
 	{
 		// Intro timing sequence
 		type: "regex",
-		pattern: 'case x\\.Intro:.*?if\\((.+?),!e\\.store\\.scene\\.triggers\\[0\\].+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+(e\\.store\\.scene\\.active=x\\.Game.+?)}break;case',
+		pattern:
+			'case x\\.Intro:.*?if\\((.+?),!e\\.store\\.scene\\.triggers\\[0\\].+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+(e\\.store\\.scene\\.active=x\\.Game.+?)}break;case',
 		replace: "case x.Intro:$1;CML.internals.playerLanding($2, $3, function(){$4});break;case",
 	},
 	{
@@ -387,9 +389,17 @@ const customOnlyPatches = [
 	},
 ];
 
+// return e.state.store.scene.active!==x.MainMenu
+
 // Other patches that are needed for core behaviors and don't modify gameplay
-const patches = [
-	{
+const patches = {
+	mainMenuUI: {
+		type: "replace",
+		from: "children:[(0,bm.jsx)(G_,{})",
+		to: "~,CML.internals.createMenuUI()",
+		token: "~",
+	},
+	colorXYLogFix: {
 		// Show x, y of invalid colors during world creation - helps debug map creation
 		type: "replace",
 		from: '"+"".concat(y,", ").concat(v,", ").concat(x)',
@@ -397,31 +407,31 @@ const patches = [
 		token: "~",
 		expectedMatches: 2,
 	},
-	{
+	continueIntercept: {
 		// Main menu 'Continue' button intercept
 		type: "replace",
 		from: 'b_("db_load=".concat(r))',
 		to: "CML.internals.loadSave(()=>{~}, r)",
 		token: "~",
 	},
-	{
+	newIntercept: {
 		// Main menu 'New' button intercept
 		type: "replace",
 		from: 'b_("new_game=true")',
 		to: "CML.internals.loadSave(()=>{~})",
 		token: "~",
 	},
-	{
+	loadIntercept: {
 		// Main menu 'Load' button intercept
 		type: "replace",
 		from: 'e&&b_("db_load="+e.id)',
 		to: "CML.internals.loadSave(() => {~}, e.id)",
 		token: "~",
 	},
-];
+};
 
-for (const patch of patches) {
-	fluxloaderAPI.addPatch("js/bundle.js", patch);
+for (const [tag, patch] of Object.entries(patches)) {
+	fluxloaderAPI.setPatch("js/bundle.js", `CML:core:${tag}`, patch);
 }
 
 // mapLoaded(mapID)
