@@ -6,9 +6,6 @@ globalThis.CML = {
 // DO NOT MODIFY DATA BELOW - IF YOU WANT TO MODIFY THESE, DO SO IN THE `meta.json` FILE
 // ANY CHANGES TO THESE OBJECTS WILL BE MADE GLOBALLY TO EVERY INSTALLED MAP
 
-let config = await fluxloaderAPI.modConfig.get("custommaploader");
-const mapDataTemplate = await fluxloaderAPI.invokeElectronIPC("CML:getMapDataTemplate");
-
 const searchParams = new URLSearchParams(window.location.search);
 const inMainMenu = searchParams.size === 0 || (searchParams.has("skip_version_check") && searchParams.size === 1);
 if (!inMainMenu) {
@@ -18,9 +15,12 @@ if (!inMainMenu) {
 	log("info", "Custom Map Loader", `Map data ready at ${performance.now()}`);
 }
 
+let config = await fluxloaderAPI.modConfig.get("custommaploader");
+const mapDataTemplate = await fluxloaderAPI.invokeElectronIPC("CML:getMapDataTemplate");
+
 // const particleCache = {};
 // #region Internals
-globalThis.CML.internals.menuWarn = function (originalFunction) {
+CML.internals.menuWarn = function (originalFunction) {
 	if (CML.internals.mapWarn) {
 		const popup = document.createElement("div");
 		popup.innerHTML = `
@@ -62,7 +62,7 @@ globalThis.CML.internals.menuWarn = function (originalFunction) {
 	}
 };
 
-CML.internals.loadSave = function (originalFunction, saveId) {
+CML.internals.loadSave = async function (originalFunction, saveId) {
 	const selected = CML.maps[CML.selectedMap];
 	if (!selected || !selected.valid) {
 		throw new Error("[Custom Map Loader] Tried to load save with an invalid map");
@@ -70,25 +70,23 @@ CML.internals.loadSave = function (originalFunction, saveId) {
 	// Generic errors for ANY form of loading a save (whether new or old)
 	if (selected.width / 1280 > 3) {
 		CML.internals.mapWarn = `This map is ${selected.width / 1280}x scale (${selected.width}x${
-			selected.width
+			selected.height
 		}). This map may not load on your machine or may cause other unexpected issues since it is bigger than 3x.`;
 	}
 	// If a save is given, check if the map and version match
 	if (saveId) {
-		return new Promise(async (res, rej) => {
-			try {
-				// Check tag for only old saves
-				const mapTag = JSON.parse((await fluxloaderAPI.invokeElectronIPC("CML:loadSave", saveId)).split("\n")[1]).world.mapTag;
-				if (mapTag && `${selected.id}-v${selected.version}` !== mapTag) {
-					CML.internals.mapWarn = `The save you are loading was created with '${mapTag}', but you are loading it with '${selected.id}-v${selected.version}'`;
-				}
-				CML.internals.menuWarn(originalFunction);
-				res();
-			} catch {
-				log("warn", "Custom Map Loader", `Error when parsing info for save '${saveId}'`);
-				rej();
+		try {
+			// Check tag for only old saves
+			const mapTag = JSON.parse((await fluxloaderAPI.invokeElectronIPC("CML:loadSave", saveId)).split("\n")[1]).world.mapTag;
+			if (mapTag && `${selected.id}-v${selected.version}` !== mapTag) {
+				CML.internals.mapWarn = `The save you are loading was created with '${mapTag}', but you are loading it with '${selected.id}-v${selected.version}'`;
 			}
-		});
+			CML.internals.menuWarn(originalFunction);
+			res();
+		} catch {
+			log("warn", "Custom Map Loader", `Error when parsing info for save '${saveId}'`);
+			rej();
+		}
 	} else {
 		CML.internals.menuWarn(originalFunction);
 	}
@@ -155,33 +153,33 @@ const advancedColorMap = {
 	SandSoil: "0, 0, 255", // Blame Lantto... apparently this is just SandSoil without dirt background
 };
 
-// Converts advancedColorMap - which is the extra list of colors stored as `Fd` currently
-// Then also adds any custom colors defined
+// Converts advancedColorMap - stored as `mapColors` (corelib) / `Fd` in the code
+// Then also adds any custom element colors defined
 CML.internals.addExtraColors = function () {
-	if (!corelib.exposed.Fd) throw new Error("[Custom Map Loader] Color table was not ready at world creation");
-	const original = JSON.parse(JSON.stringify(corelib.exposed.Fd));
+	if (!corelib.exposed.named.mapColors) throw new Error("[Custom Map Loader] Color table was not ready at world creation");
+	const original = JSON.parse(JSON.stringify(corelib.exposed.named.mapColors));
 	let data = CML.internals.tryGetData();
 	if (!CML.internals.loadedColors) CML.internals.initColors();
 	for (const tile of Object.values(CML.internals.loadedColors.elements)) {
 		if (!advancedColorMap.hasOwnProperty(tile)) continue;
-		corelib.exposed.Fd[data.meta.colors.elements[tile]] = original[advancedColorMap[tile]];
+		corelib.exposed.named.mapColors[data.meta.colors.elements[tile]] = original[advancedColorMap[tile]];
 	}
 
 	for (const [color, elementData] of Object.entries(data.meta.colors.elements)) {
 		if (typeof elementData == "object") {
 			if (elementData.bg) {
-				if (!corelib.simulation.internal.solids.hasOwnProperty(elementData.bg)) {
+				if (!corelib.exposed.named.soils.hasOwnProperty(elementData.bg)) {
 					throw new Error(`[Custom Map Loader] Unknown background element '${elementData.bg}' in element color list`);
 				}
-				elementData.bg = corelib.simulation.internal.solids[elementData.bg];
+				elementData.bg = corelib.exposed.named.soils[elementData.bg];
 			}
 			if (elementData.fg) {
-				if (!corelib.simulation.internal.solids.hasOwnProperty(elementData.fg)) {
+				if (!corelib.exposed.named.soils.hasOwnProperty(elementData.fg)) {
 					throw new Error(`[Custom Map Loader] Unknown foreground element '${elementData.fg}' in element color list`);
 				}
-				elementData.fg = corelib.simulation.internal.solids[elementData.fg];
+				elementData.fg = corelib.exposed.named.soils[elementData.fg];
 			}
-			corelib.exposed.Fd[color] = elementData;
+			corelib.exposed.named.mapColors[color] = elementData;
 		}
 	}
 };
@@ -205,6 +203,7 @@ CML.internals.playerUnstuck = function (constants) {
 	if (!CML.mapData) throw new Error("[Custom Map Loader] Map data was not ready when player unstuck was requested.");
 	fluxloaderAPI.gameInstance.state.store.player.x = CML.mapData.meta.unstuck.x * constants.cellSize;
 	fluxloaderAPI.gameInstance.state.store.player.y = CML.mapData.meta.unstuck.y * constants.cellSize;
+	fluxloaderAPI.events.trigger("CML:playerUnstuck");
 };
 
 CML.internals.landingHelper = function (_) {
@@ -377,29 +376,6 @@ CML.internals.createMenuUI = function () {
 			React.createElement("p", { style: { fontSize: "12px" } }, "[CML v4.1.1]"),
 		]
 	);
-
-	// 	const selector = document.createElement("div");
-	// 	selector.style.position = "absolute";
-	// 	selector.style.pointerEvents = "auto";
-	// 	selector.style.transform = "translate(-15rem, -4rem)";
-	// 	selector.style.color = "rgb(0,0,0)";
-	// 	selector.innerHTML = `
-	// <form class="max-w-sm mx-auto">
-	// 	<label for="CML_mapSelector" class="block mb-2 text-base font-medium text-gray-900 dark:text-white">Select Map</label>
-	// 	<select id="CML_mapSelector" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" style="max-width: 10rem; width: 10rem">
-	// 	${options}
-	// 	</select>
-	// </form>
-	// <p style="font-size:12px">[CML v4.0.0]</p>`;
-	// 	const ui = document.querySelector(
-	// 		"#ui > div.fixed.inset-0.flex.items-center.justify-center.pointer-events-none.mt-40 > div > div.bg-opacity-25.text-white.flex.flex-col.items-center.justify-center.relative"
-	// 	);
-	// 	ui.appendChild(selector);
-	// 	// Uses selected option on UI, which will automatically ignore if the `selectedMap` is invalid
-	// 	await selectionChanged(document.getElementById("CML_mapSelector").value);
-	// 	document.getElementById("CML_mapSelector").addEventListener("change", async function () {
-	// 		await selectionChanged(this.value);
-	// 	});
 };
 
 // Allows requesting data, but resorts to defaults if not ready
@@ -420,6 +396,6 @@ fluxloaderAPI.events.on("fl:scene-loaded", async (scene) => {
 	config = await fluxloaderAPI.modConfig.get("custommaploader");
 });
 
-// onMapLoaded(mapID)
 fluxloaderAPI.events.registerEvent("CML:mapLoaded");
-// unloaded event isn't included since detecting map unload in game is difficult and likely unnecessary
+fluxloaderAPI.events.registerEvent("CML:playerLanded");
+fluxloaderAPI.events.registerEvent("CML:playerUnstuck");

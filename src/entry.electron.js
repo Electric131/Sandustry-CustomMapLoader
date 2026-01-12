@@ -94,14 +94,7 @@ function loadMap(mapData) {
 	};
 
 	try {
-		const mapFiles = [
-			"map_blueprint_playtest.png",
-			"map_blueprint_playtest_authorization.png",
-			"map_blueprint_playtest_lights.png",
-			"map_blueprint_playtest_sensors.png",
-			"fog_playtest.png",
-			"meta.json",
-		];
+		const mapFiles = ["map_blueprint_playtest.png", "map_blueprint_playtest_authorization.png", "map_blueprint_playtest_lights.png", "map_blueprint_playtest_sensors.png", "fog_playtest.png", "meta.json"];
 		for (let file of mapFiles) {
 			let exists = fs.existsSync(`${mapData.path}/${file}`);
 			// Make sure file exists, unless it's the meta.json since that's optional
@@ -230,7 +223,6 @@ fluxloaderAPI.events.on("fl:pre-scene-loaded", async (scene) => {
 		}
 		loadPatches(config.map);
 		await fluxloaderAPI.events.trigger("CML:mapLoaded", loadedMapData.id);
-		// path == "false" when going to main menu
 	}
 });
 
@@ -274,15 +266,19 @@ function loadPatches(mapID) {
 	if (mapID !== "default") {
 		// Load patches that are used for meta files
 		if (!trackedPatches.hasOwnProperty("js/bundle.js")) trackedPatches["js/bundle.js"] = [];
-		for (let patch of customOnlyPatches) {
-			trackedPatches["js/bundle.js"].push(fluxloaderAPI.addPatch("js/bundle.js", patch));
+		for (let [tag, patch] of Object.entries(customOnlyPatches)) {
+			fluxloaderAPI.setPatch("js/bundle.js", `CML:core-map:${tag}`, patch);
+			trackedPatches["js/bundle.js"].push(`CML:core-map:${tag}`);
 		}
 	}
 	if (!mapPatches.hasOwnProperty(mapID)) return; // No patches for this map
 	for (let [file, patches] of Object.entries(mapPatches[mapID])) {
 		if (!trackedPatches.hasOwnProperty(file)) trackedPatches[file] = [];
+		let patchIndex = 0;
 		for (let patch of patches) {
-			trackedPatches[file].push(fluxloaderAPI.addPatch(file, patch));
+			let tag = `CML:map-${mapID}:patch${patchIndex++}`;
+			fluxloaderAPI.setPatch(file, tag, patch);
+			trackedPatches[file].push(tag);
 		}
 	}
 }
@@ -303,91 +299,90 @@ globalThis.CML = {
 };
 
 // Patches that will only be added if a map other than the default map is being loaded
-const customOnlyPatches = [
-	{
+const customOnlyPatches = {
+	customColors: {
 		// World creation - pixel loop starting
 		type: "replace",
 		from: "for(var i=performance.now()",
 		to: `CML.internals.addExtraColors();~`,
 		token: "~",
 	},
-	{
+	colorReplacements: {
 		// World creation - color conversion
 		type: "replace",
 		from: "switch(b)",
 		to: "b=CML.internals.convertColor(b,false);switch(b)",
 	},
-	{
+	particleSpawning: {
 		// World creation - color lookup
 		type: "replace",
 		from: `var w=Fd["".concat(y,", ").concat(v,", ").concat(x)];`,
 		to: `var w=Fd[b];let res=CML.internals.handleParticle(b);if(res){let pixel=Fh(n[res],m,p);pixel.bg=5;h[p][m]=pixel;break;}`,
 	},
-	{
+	replaceWallColors: {
 		// World creation - wall data
 		type: "replace",
 		from: 'f="".concat(c,", ").concat(h,", ").concat(d);',
 		to: "~f=CML.internals.convertColor(f,true);",
 		token: "~",
 	},
-	{
+	playerSpawn: {
 		// World creation - player spawn
 		type: "replace",
 		from: "{x:363*e.cellSize,y:200*e.cellSize}",
 		to: `CML.internals.playerSpawnPos(e)`,
 	},
-	{
+	unstuckButton: {
 		// Unstuck button
 		type: "replace",
 		from: "t.state.store.player.x=161*e.cellSize,t.state.store.player.y=616*e.cellSize",
 		to: `CML.internals.playerUnstuck(e)`,
 	},
-	{
+	landingSequence: {
 		// Intro timing sequence
 		type: "regex",
-		pattern:
-			'case x\\.Intro:.*?if\\((.+?),!e\\.store\\.scene\\.triggers\\[0\\].+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+(e\\.store\\.scene\\.active=x\\.Game.+?)}break;case',
-		replace: "case x.Intro:$1;CML.internals.playerLanding($2, $3, function(){$4});break;case",
+		pattern: 'case x\\.Intro:.*?if\\((.+?),!e\\.store\\.scene\\.triggers\\[0\\].+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+?(\\w+)\\(e\\.session\\.soundEngine,"boost"\\).+(e\\.store\\.scene\\.active=x\\.Game.+?)}break;case',
+		replace: "case x.Intro:$1;CML.internals.playerLanding($2,$3,function(){fluxloaderAPI.events.trigger('CML:playerLanded');$4});break;case",
 	},
-	{
+	mapTag: {
 		// World loading - game version tag added
 		type: "regex",
 		pattern: `transformOrigin:"bottom right"}},{children:"(v\\S+)"`,
 		replace: `transformOrigin:"bottom right",whiteSpace:"pre-wrap"}},{children:CML.internals.appendDisplayTag("$1")`,
 	},
-	{
+	fogAdjustment: {
 		// Player fog change
 		type: "replace",
 		from: "(l=i.y)<=3400?700:l>=4200?200:700-(l-3400)/800*500",
 		to: "CML.internals.playerFog(l=i.y)",
 	},
-	{
+	parallaxScale: {
 		// Parallax scale adjustment
 		type: "regex",
 		pattern: "n\\.session\\.camera\\.(x|y)\\/((?:1\\.5)|2)\\)",
 		replace: `n.session.camera.$1/($2*(CML.internals.tryGetData().width/1280)))`,
 		expectedMatches: 4,
 	},
-	{
+	parallaxShift: {
 		// Parallax vertical adjustment
 		type: "replace",
 		from: "Math.round(-n.session.camera.y",
 		to: `Math.round(-(n.session.camera.y+CML.internals.tryGetData().meta.parallaxOffset)`,
 		expectedMatches: 2,
 	},
-	{
+	softYLimit: {
 		// Soft y limit
 		type: "replace",
 		from: "n.y<600",
 		to: "n.y<CML.internals.tryGetData().meta.yLimit.soft",
 	},
-	{
+	hardYLimit: {
 		// Hard y limit
 		type: "replace",
 		from: "s<550?(s=550",
 		to: "s<CML.internals.tryGetData().meta.yLimit.hard?(s=CML.internals.tryGetData().meta.yLimit.hard",
 	},
-];
+};
 
 // return e.state.store.scene.active!==x.MainMenu
 

@@ -1,11 +1,11 @@
 {
 	"name": "Custom Map Loader",
-	"version": "4.1.1",
+	"version": "4.1.3",
 	"modID": "custommaploader",
 	"author": "Electric131",
 	"shortDescription": "A mod to load custom maps",
 	"fluxloaderVersion": "^2.2.0",
-	"dependencies": { "corelib": "^1.0.0" },
+	"dependencies": { "corelib": "^2.0.0" },
 	"tags": ["loader"],
 	"electronEntrypoint": "entry.electron.js",
 	"gameEntrypoint": "entry.game.js",
