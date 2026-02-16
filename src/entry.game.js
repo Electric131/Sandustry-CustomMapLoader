@@ -69,9 +69,7 @@ CML.internals.loadSave = async function (originalFunction, saveId) {
 	}
 	// Generic errors for ANY form of loading a save (whether new or old)
 	if (selected.width / 1280 > 3) {
-		CML.internals.mapWarn = `This map is ${selected.width / 1280}x scale (${selected.width}x${
-			selected.height
-		}). This map may not load on your machine or may cause other unexpected issues since it is bigger than 3x.`;
+		CML.internals.mapWarn = `This map is ${selected.width / 1280}x scale (${selected.width}x${selected.height}). This map may not load on your machine or may cause other unexpected issues since it is bigger than 3x.`;
 	}
 	// If a save is given, check if the map and version match
 	if (saveId) {
@@ -309,7 +307,7 @@ CML.internals.createMenuUI = function () {
 					selected: map.id == CML.selectedMap,
 					value: map.id,
 				},
-				formattedName
+				formattedName,
 			);
 		});
 
@@ -370,11 +368,11 @@ CML.internals.createMenuUI = function () {
 							width: "10rem",
 						},
 					},
-					options
+					options,
 				),
 			]),
 			React.createElement("p", { style: { fontSize: "12px" } }, "[CML v4.1.1]"),
-		]
+		],
 	);
 };
 

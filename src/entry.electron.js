@@ -326,6 +326,12 @@ const customOnlyPatches = {
 		to: "~f=CML.internals.convertColor(f,true);",
 		token: "~",
 	},
+	fixForegroundCheck: {
+		// World creation - color lookup case 2
+		type: "replace",
+		from: "(Number.isInteger(w)||(w=w.fg),!w)",
+		to: "(Number.isInteger(w)||(w=w.fg),w==undefined)",
+	},
 	playerSpawn: {
 		// World creation - player spawn
 		type: "replace",
