@@ -80,10 +80,8 @@ CML.internals.loadSave = async function (originalFunction, saveId) {
 				CML.internals.mapWarn = `The save you are loading was created with '${mapTag}', but you are loading it with '${selected.id}-v${selected.version}'`;
 			}
 			CML.internals.menuWarn(originalFunction);
-			res();
 		} catch {
 			log("warn", "Custom Map Loader", `Error when parsing info for save '${saveId}'`);
-			rej();
 		}
 	} else {
 		CML.internals.menuWarn(originalFunction);
